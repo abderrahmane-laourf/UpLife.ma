@@ -8,9 +8,20 @@ datasource db {
 }
 
 model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model OtpRequest {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
+  email     String
+  code      String
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([email])
 }

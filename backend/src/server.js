@@ -1,11 +1,34 @@
 import 'dotenv/config';
 import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import prisma from './lib/prisma.js';
+import authRoutes from './modules/auth/auth.routes.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
+app.use(cookieParser());
+app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
   res.json({
@@ -64,6 +87,16 @@ app.post('/users', async (req, res) => {
       error: error.message,
     });
   }
+});
+
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    return res.status(400).json({
+      message: 'Invalid JSON body. Use valid JSON with double quotes around keys and string values.',
+    });
+  }
+
+  return next(error);
 });
 
 app.listen(port, () => {
