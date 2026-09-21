@@ -16,8 +16,8 @@
       "type": "string"
     },
     {
-      "key": "email",
-      "value": "user@example.com",
+      "key": "phone",
+      "value": "+212600000000",
       "type": "string"
     },
     {
@@ -29,11 +29,16 @@
       "key": "resetCode",
       "value": "123456",
       "type": "string"
+    },
+    {
+      "key": "registrationCode",
+      "value": "123456",
+      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "Register",
+      "name": "Register - Request OTP",
       "request": {
         "method": "POST",
         "header": [
@@ -44,7 +49,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "raw": "{\n  \"name\": \"Test User\",\n  \"phone\": \"{{phone}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -52,16 +57,98 @@
           }
         },
         "url": {
-          "raw": "{{baseUrl}}/api/auth/register",
+          "raw": "{{baseUrl}}/api/auth/register/request-otp",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "api",
             "auth",
-            "register"
+            "register",
+            "request-otp"
           ]
         }
+      },
+      "description": "Queues a six-digit verification code for WhatsApp through Evolution API. The pending registration is stored in Redis for 10 minutes."
+    },
+    {
+      "name": "Register - Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"{{registrationCode}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register/verify-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register",
+            "verify-otp"
+          ]
+        },
+        "description": "Verifies the six-digit code only. The account is created by the Complete Registration request after the password step."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.accessToken) pm.collectionVariables.set('accessToken', json.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register - Complete Registration",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"{{registrationCode}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register/complete",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register",
+            "complete"
+          ]
+        },
+        "description": "Creates the account after the six-digit OTP has been verified. The frontend redirects to Login after this request."
       },
       "event": [
         {
@@ -88,7 +175,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -191,7 +278,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\"\n}",
+          "raw": "{\n  \"phone\": \"{{phone}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -209,7 +296,7 @@
             "forgot-password"
           ]
         },
-        "description": "The OTP is sent to the email through Mailtrap. The API does not return the OTP."
+        "description": "The OTP is queued and sent to WhatsApp through Evolution API. The API does not return the OTP."
       }
     },
     {
@@ -224,7 +311,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{resetCode}}\",\n  \"newPassword\": \"NewPassword123!\"\n}",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"{{resetCode}}\",\n  \"newPassword\": \"NewPassword123!\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -242,7 +329,7 @@
             "reset-password"
           ]
         },
-        "description": "Use the six-digit code received in Mailtrap. OTP validity is 10 minutes."
+        "description": "Use the six-digit code received on WhatsApp. OTP validity is 10 minutes."
       }
     }
   ]

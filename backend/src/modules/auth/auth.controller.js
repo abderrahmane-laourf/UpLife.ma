@@ -3,7 +3,8 @@ import prisma from '../../lib/prisma.js';
 import redis from '../../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt.js';
 import { generateOtpCode } from '../../lib/otp.js';
-import { sendOtpEmail } from '../../lib/mailer.js';
+import { enqueueWhatsAppMessage } from '../../queues/whatsapp.queue.js';
+import { normalizeWhatsAppNumber, passwordResetOtpMessage, registrationOtpMessage } from '../../lib/whatsapp.js';
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -26,60 +27,133 @@ function clearRefreshCookie(res) {
   });
 }
 
-export async function register(req, res) {
+export async function requestRegistrationOtp(req, res) {
   try {
-    const { email, password, name } = req.body;
+    const name = String(req.body.name || '').trim();
+    const phone = normalizeWhatsAppNumber(req.body.phone);
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    if (name.length < 3) {
+      return res.status(400).json({ message: 'Full name must contain at least 3 characters' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (!/^\d{8,15}$/.test(phone)) {
+      return res.status(400).json({ message: 'A valid WhatsApp phone number is required' });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { phone } });
     if (existingUser) {
       return res.status(409).json({ message: 'User already exists' });
     }
 
+    const code = generateOtpCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await redis.set(`registration:${phone}`, JSON.stringify({ name, phone }), {
+      EX: 10 * 60,
+    });
+
+    await prisma.otpRequest.deleteMany({ where: { phone, purpose: 'registration' } });
+    await prisma.otpRequest.create({ data: { phone, code, purpose: 'registration', expiresAt } });
+    await enqueueWhatsAppMessage({
+      phone,
+      type: 'registration-otp',
+      text: registrationOtpMessage({ code, expiresAt }),
+    });
+
+    return res.json({ message: 'Verification code queued for WhatsApp delivery.', expiresAt });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to send registration code', error: error.message });
+  }
+}
+
+export async function verifyRegistrationOtp(req, res) {
+  try {
+    const phone = normalizeWhatsAppNumber(req.body.phone);
+    const { code } = req.body;
+
+    if (!/^\d{8,15}$/.test(phone) || !code || !/^\d{6}$/.test(String(code))) {
+      return res.status(400).json({ message: 'Phone and a valid 6-digit code are required' });
+    }
+
+    const otpRequest = await prisma.otpRequest.findFirst({
+      where: { phone, code: String(code), purpose: 'registration' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRequest || otpRequest.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired verification code' });
+    }
+
+    const pendingRegistration = await redis.get(`registration:${phone}`);
+    if (!pendingRegistration) {
+      return res.status(400).json({ message: 'Registration session expired. Please register again.' });
+    }
+
+    return res.json({ message: 'WhatsApp phone verified successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Registration verification failed', error: error.message });
+  }
+}
+
+export async function completeRegistration(req, res) {
+  try {
+    const phone = normalizeWhatsAppNumber(req.body.phone);
+    const { code, password } = req.body;
+
+    if (!/^\d{8,15}$/.test(phone) || !code || !password || !/^\d{6}$/.test(String(code))) {
+      return res.status(400).json({ message: 'Phone, password and a valid 6-digit code are required' });
+    }
+
+    if (String(password).length < 8) {
+      return res.status(400).json({ message: 'Password must contain at least 8 characters' });
+    }
+
+    const otpRequest = await prisma.otpRequest.findFirst({
+      where: { phone, code: String(code), purpose: 'registration' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRequest || otpRequest.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired verification code' });
+    }
+
+    const pendingRegistration = await redis.get(`registration:${phone}`);
+    if (!pendingRegistration) {
+      return res.status(400).json({ message: 'Registration session expired. Please register again.' });
+    }
+
+    const registration = JSON.parse(pendingRegistration);
     const passwordHash = await bcrypt.hash(password, 10);
-
     const user = await prisma.user.create({
-      data: {
-        email,
-        name: name || null,
-        passwordHash,
-      },
+      data: { phone: registration.phone, name: registration.name, passwordHash },
     });
 
-    const accessToken = signAccessToken(user);
-    const refreshToken = signRefreshToken(user);
+    await redis.del(`registration:${phone}`);
+    await prisma.otpRequest.deleteMany({ where: { phone, purpose: 'registration' } });
 
-    await redis.set(`refresh:${user.id}`, refreshToken, {
-      EX: 7 * 24 * 60 * 60,
-    });
-
-    setRefreshCookie(res, refreshToken);
-
-    res.status(201).json({
+    return res.status(201).json({
+      message: 'Account created successfully. Please log in.',
       user: {
         id: user.id,
-        email: user.email,
+        phone: user.phone,
         name: user.name,
       },
-      accessToken,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Register failed', error: error.message });
+    return res.status(500).json({ message: 'Registration failed', error: error.message });
   }
 }
 
 export async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    const phone = normalizeWhatsAppNumber(req.body.phone);
+    const { password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    if (!/^\d{8,15}$/.test(phone) || !password) {
+      return res.status(400).json({ message: 'Phone and password are required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { phone } });
     if (!user || !user.passwordHash) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -101,7 +175,7 @@ export async function login(req, res) {
     return res.json({
       user: {
         id: user.id,
-        email: user.email,
+        phone: user.phone,
         name: user.name,
       },
       accessToken,
@@ -161,13 +235,13 @@ export async function logout(req, res) {
 
 export async function requestPasswordReset(req, res) {
   try {
-    const { email } = req.body;
+    const phone = normalizeWhatsAppNumber(req.body.phone);
 
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+    if (!/^\d{8,15}$/.test(phone)) {
+      return res.status(400).json({ message: 'WhatsApp phone is required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -177,20 +251,24 @@ export async function requestPasswordReset(req, res) {
 
     await prisma.otpRequest.create({
       data: {
-        email,
+        phone,
         code,
+        purpose: 'password_reset',
         expiresAt,
       },
     });
 
-    await sendOtpEmail({
-      to: email,
+    await enqueueWhatsAppMessage({
+      phone,
+      type: 'password-reset-otp',
+      text: passwordResetOtpMessage({
       code,
       expiresAt,
+      }),
     });
 
     return res.json({
-      message: 'OTP sent successfully. Check your inbox.',
+      message: 'OTP sent successfully on WhatsApp.',
       expiresAt,
     });
   } catch (error) {
@@ -200,16 +278,18 @@ export async function requestPasswordReset(req, res) {
 
 export async function resetPassword(req, res) {
   try {
-    const { email, code, newPassword } = req.body;
+    const phone = normalizeWhatsAppNumber(req.body.phone);
+    const { code, newPassword } = req.body;
 
-    if (!email || !code || !newPassword) {
-      return res.status(400).json({ message: 'Email, code and new password are required' });
+    if (!/^\d{8,15}$/.test(phone) || !code || !newPassword) {
+      return res.status(400).json({ message: 'Phone, code and new password are required' });
     }
 
     const otpRequest = await prisma.otpRequest.findFirst({
       where: {
-        email,
+        phone,
         code,
+        purpose: 'password_reset',
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -225,12 +305,12 @@ export async function resetPassword(req, res) {
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
-      where: { email },
+      where: { phone },
       data: { passwordHash },
     });
 
     await prisma.otpRequest.deleteMany({
-      where: { email },
+      where: { phone },
     });
 
     return res.json({ message: 'Password reset successfully' });

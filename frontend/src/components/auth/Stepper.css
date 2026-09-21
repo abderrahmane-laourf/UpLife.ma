@@ -1,0 +1,140 @@
+.stepper {
+  width: 100%;
+}
+
+.stepper-indicators {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.stepper-indicator-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.stepper-indicator-group:last-child {
+  flex: 0 0 auto;
+}
+
+.stepper-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a39a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: 250ms ease;
+}
+
+.stepper-indicator.active,
+.stepper-indicator.complete {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #031009;
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.3);
+}
+
+.stepper-connector {
+  height: 2px;
+  flex: 1;
+  margin: 0 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 300ms ease;
+}
+
+.stepper-connector.complete {
+  background: #22c55e;
+}
+
+.stepper-content {
+  position: relative;
+  min-height: 9rem;
+  overflow: visible;
+}
+
+.stepper-slide {
+  position: relative;
+  width: 100%;
+  min-height: 9rem;
+}
+
+.stepper-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.stepper-back,
+.stepper-next {
+  min-height: 2.75rem;
+  border-radius: 0.85rem;
+  padding: 0.75rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: 250ms ease;
+}
+
+.stepper-back {
+  color: #a8b5ac;
+}
+
+.stepper-back:hover {
+  color: #ffffff;
+}
+
+.stepper-next {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #031009;
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.18);
+}
+
+.stepper-next:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(34, 197, 94, 0.3);
+}
+
+.stepper-next:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth-shell.theme-light .stepper-indicator {
+  border-color: #d7e0da;
+  background: #f7faf8;
+  color: #647168;
+}
+
+.auth-shell.theme-light .stepper-indicator.active,
+.auth-shell.theme-light .stepper-indicator.complete {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.auth-shell.theme-light .stepper-connector {
+  background: #d7e0da;
+}
+
+.auth-shell.theme-light .stepper-connector.complete {
+  background: #16a34a;
+}
+
+.auth-shell.theme-light .stepper-back {
+  color: #526259;
+}
+
+.auth-shell.theme-light .stepper-back:hover {
+  color: #17201b;
+}

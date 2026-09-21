@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import prisma from './lib/prisma.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import './queues/whatsapp.queue.js';
 
 const app = express();
 const port = process.env.PORT || 3000;

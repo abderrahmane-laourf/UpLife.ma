@@ -40,36 +40,59 @@ Before testing, set these collection variables:
 | Variable | Example | Purpose |
 | --- | --- | --- |
 | `baseUrl` | `http://localhost:3000` | Backend URL |
-| `email` | `user@example.com` | Test account email |
+| `phone` | `+212600000000` | WhatsApp destination |
 | `password` | `Password123!` | Test account password |
 | `accessToken` | Automatically saved | Short-lived JWT |
-| `resetCode` | `123456` | Code received in Mailtrap |
+| `resetCode` | `123456` | Code received on WhatsApp |
 
 Enable Apidog cookie storage/cookie jar. The backend sets the refresh token as an HttpOnly `refreshToken` cookie, so JavaScript cannot read it directly.
 
 ## Authentication flow
 
-### 1. Register
+### 1. Register: request verification code
 
-`POST /api/auth/register`
+`POST /api/auth/register/request-otp`
 
 ```json
 {
   "name": "Test User",
-  "email": "user@example.com",
+  "phone": "+212600000000"
+}
+```
+
+This first request does not create the user yet. It stores the pending registration in Redis for 10 minutes and queues a six-digit OTP for WhatsApp delivery.
+
+### 2. Register: verify OTP and create account
+
+`POST /api/auth/register/verify-otp`
+
+```json
+{
+  "code": "123456"
+}
+```
+
+The code must contain exactly six digits. This endpoint only verifies the code; it does not create the account yet.
+
+### 3. Complete registration
+
+`POST /api/auth/register/complete`
+
+```json
+{
+  "code": "123456",
   "password": "Password123!"
 }
 ```
 
-The response contains an access token. The backend also creates a refresh token, stores it in Redis, and sends it as an HttpOnly cookie.
+The backend validates the OTP again, hashes the password, creates the user, and returns a success message. The frontend redirects the user to Login, where they can sign in normally.
 
-### 2. Login
+### 4. Login
 
 `POST /api/auth/login`
 
 ```json
 {
-  "email": "user@example.com",
   "password": "Password123!"
 }
 ```
@@ -80,7 +103,7 @@ Response example:
 {
   "user": {
     "id": "user-id",
-    "email": "user@example.com",
+    "phone": "+212600000000",
     "name": "Test User"
   },
   "accessToken": "jwt-access-token"
@@ -95,7 +118,7 @@ Authorization: Bearer <accessToken>
 
 The access token expires after 15 minutes.
 
-### 3. Refresh access token
+### 4. Refresh access token
 
 `POST /api/auth/refresh-token`
 
@@ -111,7 +134,7 @@ The backend verifies the JWT, checks the matching Redis value, rotates the refre
 
 The refresh token is stored in Redis with a seven-day expiration.
 
-### 4. Logout
+### 5. Logout
 
 `POST /api/auth/logout`
 
@@ -123,13 +146,13 @@ Authorization: Bearer <accessToken>
 
 The backend deletes the user's refresh token from Redis and clears the HttpOnly cookie.
 
-### 5. Request password reset
+### 6. Request password reset
 
 `POST /api/auth/forgot-password`
 
 ```json
 {
-  "email": "user@example.com"
+  "phone": "+212600000000"
 }
 ```
 
@@ -137,32 +160,63 @@ The backend:
 
 1. Generates a six-digit OTP.
 2. Stores it in PostgreSQL for 10 minutes.
-3. Sends the OTP through Mailtrap SMTP.
+3. Queues the OTP in BullMQ and sends it through Evolution API to WhatsApp.
 
 The API response does not expose the OTP:
 
 ```json
 {
-  "message": "OTP sent successfully. Check your inbox.",
+  "message": "OTP sent successfully on WhatsApp.",
   "expiresAt": "2026-09-21T12:00:00.000Z"
 }
 ```
 
-Open the Mailtrap inbox and copy the code into the reset request.
+Open the WhatsApp conversation for the configured phone and copy the code into the reset request.
 
-### 6. Reset password
+## WhatsApp and Evolution API
+
+OTP delivery uses Evolution API instead of SMTP. The backend adds WhatsApp jobs to BullMQ, and the worker sends them through the Evolution API instance.
+
+Start Evolution API:
+
+```powershell
+cd evolution-api
+docker compose up -d
+```
+
+Evolution API is exposed at `http://localhost:8080`. Create the configured instance:
+
+```powershell
+curl.exe -X POST http://localhost:8080/instance/create `
+  -H "apikey: uplife-evolution-local-key-change-me" `
+  -H "Content-Type: application/json" `
+  -d '{"instanceName":"uplife","integration":"WHATSAPP-BAILEYS","qrcode":true}'
+```
+
+Request the QR code for the instance:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/instance/connect/uplife" `
+  -Headers @{ apikey = "uplife-evolution-local-key-change-me"; Origin = "http://localhost:3000" }
+```
+
+Open the returned QR code and scan it from WhatsApp. The backend then sends OTP jobs to this instance.
+
+Registration requires a WhatsApp phone number. Use international format such as `+212600000000` or Moroccan local format such as `0600000000`.
+
+### 7. Reset password
 
 `POST /api/auth/reset-password`
 
 ```json
 {
-  "email": "user@example.com",
+  "phone": "+212600000000",
   "code": "123456",
   "newPassword": "NewPassword123!"
 }
 ```
 
-The OTP must be valid and not older than 10 minutes. After a successful reset, all OTP records for that email are deleted.
+The OTP must be valid and not older than 10 minutes. After a successful reset, all OTP records for that phone are deleted.
 
 ## Redis behavior
 
@@ -219,15 +273,13 @@ The local `.env` uses:
 REDIS_URL="redis://127.0.0.1:6379"
 ```
 
-### Mailtrap does not receive the email
+### WhatsApp does not receive the message
 
-Check the Mailtrap credentials in `backend/.env`:
+Check that the Evolution API instance is connected:
 
-```env
-MAILTRAP_HOST="sandbox.smtp.mailtrap.io"
-MAILTRAP_PORT=2525
-MAILTRAP_USER="your_mailtrap_user"
-MAILTRAP_PASS="your_mailtrap_password"
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/instance/fetchInstances" `
+  -Headers @{ apikey = "uplife-evolution-local-key-change-me"; Origin = "http://localhost:3000" }
 ```
 
-Then restart the backend after changing environment variables.
+The instance must show `connectionStatus: open`. If it shows `connecting`, request the QR code from `/instance/connect/uplife` and scan it in WhatsApp. Also check the backend logs for failed BullMQ jobs.

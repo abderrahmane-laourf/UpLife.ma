@@ -1,30 +1,100 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
-import { apiRequest, saveAccessToken } from '../../services/authService.js'
+import OtpInput from '../../components/auth/OtpInput.jsx'
+import Stepper, { Step } from '../../components/auth/Stepper.jsx'
+import { apiRequest } from '../../services/authService.js'
+
+const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const { t } = useTranslation()
+  const [form, setForm] = useState({ name: '', phone: '', code: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   function updateField(event) {
-    setForm({ ...form, [event.target.name]: event.target.value })
+    setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
+    setError('')
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  async function handleBeforeNext(step) {
     setError('')
     setLoading(true)
 
     try {
-      const data = await apiRequest('/api/auth/register', {
+      if (step === 1) {
+        const normalizedName = form.name.trim()
+        const normalizedPhone = form.phone.trim()
+
+        if (normalizedName.length < 3) {
+          setError(t('auth.register.nameInvalid'))
+          return false
+        }
+
+        if (!/^\+?[0-9\s()-]{8,20}$/.test(normalizedPhone)) {
+          setError(t('auth.register.phoneInvalid'))
+          return false
+        }
+
+        setForm((currentForm) => ({ ...currentForm, name: normalizedName, phone: normalizedPhone }))
+
+        if (!normalizedName || !normalizedPhone) {
+          setError(t('auth.register.detailsRequired'))
+          return false
+        }
+
+        await apiRequest('/api/auth/register/request-otp', {
+          method: 'POST',
+          body: JSON.stringify({ name: normalizedName, phone: normalizedPhone }),
+        })
+        return true
+      }
+
+      if (step === 2) {
+        if (!/^\d{6}$/.test(form.code)) {
+          setError(t('auth.register.otpInvalid'))
+          return false
+        }
+
+        await apiRequest('/api/auth/register/verify-otp', {
+          method: 'POST',
+          body: JSON.stringify({ phone: form.phone.trim(), code: form.code }),
+        })
+        return true
+      }
+
+      return true
+    } catch (requestError) {
+      setError(requestError.message)
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function completeRegistration() {
+    setError('')
+
+    if (!form.password || form.password.length < 8) {
+      setError(t('auth.register.passwordInvalid'))
+      return
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError(form.password ? t('auth.register.passwordMismatch') : t('auth.register.passwordRequired'))
+      return
+    }
+
+    setLoading(true)
+    try {
+      await apiRequest('/api/auth/register/complete', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify({ phone: form.phone.trim(), code: form.code, password: form.password }),
       })
-      saveAccessToken(data.accessToken)
-      navigate('/dashboard')
+      navigate('/login', { state: { toast: t('auth.register.success') }, replace: true })
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -33,32 +103,54 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout title="Register" subtitle="Create your UpLife account">
+    <AuthLayout title={t('auth.register.title')} subtitle={t('auth.register.subtitle')} loading={loading} toast={error}>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Full name</label>
-            <input name="name" type="text" value={form.name} onChange={updateField} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="John Doe" />
+      <Stepper
+        initialStep={1}
+        onBeforeNext={handleBeforeNext}
+        onFinalStepCompleted={completeRegistration}
+        backButtonText={t('auth.register.back')}
+        nextButtonText={t('auth.register.next')}
+        completeButtonText={t('auth.register.submit')}
+      >
+        <Step>
+          <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.name')}</label>
+              <input name="name" type="text" value={form.name} onChange={updateField} required className={inputClass} placeholder={t('auth.register.namePlaceholder')} />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.phone')}</label>
+              <input name="phone" type="tel" value={form.phone} onChange={updateField} required className={inputClass} placeholder={t('auth.register.phonePlaceholder')} />
+            </div>
           </div>
+        </Step>
+
+        <Step>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
-            <input name="email" type="email" value={form.email} onChange={updateField} required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="you@example.com" />
+            <p className="text-sm leading-6 text-neutral-400">{t('auth.register.otpSubtitle', { phone: form.phone })}</p>
+            <label className="mb-2 mt-6 block text-sm font-medium text-neutral-300">{t('auth.register.otp')}</label>
+            <OtpInput value={form.code} onChange={(code) => { setForm((currentForm) => ({ ...currentForm, code })); setError('') }} disabled={loading} />
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Password</label>
-            <input name="password" type="password" value={form.password} onChange={updateField} required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="••••••••" />
+        </Step>
+
+        <Step>
+          <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.password')}</label>
+              <input name="password" type="password" value={form.password} onChange={updateField} required className={inputClass} placeholder={t('auth.register.passwordPlaceholder')} />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.confirmPassword')}</label>
+              <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={updateField} required className={inputClass} placeholder={t('auth.register.confirmPasswordPlaceholder')} />
+            </div>
           </div>
+        </Step>
+      </Stepper>
 
-          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-          <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
-        </form>
-
-        <div className="mt-5 text-center text-sm">
-          <button type="button" onClick={() => navigate('/login')} className="text-blue-600 hover:text-blue-700">Already have an account?</button>
-        </div>
+      <div className="mt-6 text-center text-sm font-medium">
+        <button type="button" onClick={() => navigate('/login')} className="text-[#22C55E] transition-colors hover:text-[#4ADE80]">{t('auth.register.loginLink')}</button>
+      </div>
     </AuthLayout>
   )
 }

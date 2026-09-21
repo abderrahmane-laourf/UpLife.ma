@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
 import { apiRequest, saveAccessToken } from '../../services/authService.js'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const location = useLocation()
+  const { t } = useTranslation()
+  const [form, setForm] = useState({ phone: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,29 +37,80 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Login" subtitle="Welcome back to UpLife">
+    <AuthLayout title={t('auth.login.title')} subtitle={t('auth.login.subtitle')} loading={loading} toast={error || location.state?.toast} toastType={error ? 'error' : 'success'}>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          
+          {/* WhatsApp phone input */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
-            <input name="email" type="email" value={form.email} onChange={updateField} required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="you@example.com" />
+            <label className="mb-2 block text-sm font-medium text-neutral-300">
+              {t('auth.login.phone')}
+            </label>
+            <input 
+              name="phone" 
+              type="tel" 
+              value={form.phone} 
+              onChange={updateField} 
+              required 
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition-all duration-300 focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]" 
+              placeholder={t('auth.login.phonePlaceholder')} 
+            />
           </div>
+
+          {/* Password Input */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Password</label>
-            <input name="password" type="password" value={form.password} onChange={updateField} required className="w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-blue-500" placeholder="••••••••" />
+            <label className="mb-2 block text-sm font-medium text-neutral-300">
+              {t('auth.login.password')}
+            </label>
+            <input 
+              name="password" 
+              type="password" 
+              value={form.password} 
+              onChange={updateField} 
+              required 
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition-all duration-300 focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]" 
+              placeholder={t('auth.login.passwordPlaceholder')} 
+            />
           </div>
 
-          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-          <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {loading ? 'Logging in...' : 'Login'}
+          {/* Error Message - Adjusted for Dark Mode */}
+          {/* Submit Button - The Glowing Green Nadi Button */}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="mt-6 w-full rounded-xl bg-gradient-to-r from-[#22C55E] to-[#16A34A] px-4 py-3.5 font-bold text-black transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 disabled:hover:shadow-none"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                {/* Optional: Add a simple CSS spinner here if you want */}
+                <svg className="h-5 w-5 animate-spin text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                {t('auth.login.loading')}
+              </span>
+            ) : (
+              t('auth.login.submit')
+            )}
           </button>
         </form>
 
-        <div className="mt-5 flex items-center justify-between text-sm">
-          <button type="button" onClick={() => navigate('/register')} className="text-blue-600 hover:text-blue-700">Create account</button>
-          <button type="button" onClick={() => navigate('/forgot-password')} className="text-slate-600 hover:text-slate-800">Forgot password?</button>
+        {/* Bottom Links */}
+        <div className="mt-6 flex items-center justify-between text-sm font-medium">
+          <button 
+            type="button" 
+            onClick={() => navigate('/register')} 
+            className="text-[#22C55E] transition-colors hover:text-[#4ADE80]"
+          >
+            {t('auth.login.registerLink')}
+          </button>
+          
+          <button 
+            type="button" 
+            onClick={() => navigate('/forgot-password')} 
+            className="text-neutral-400 transition-colors hover:text-white"
+          >
+            {t('auth.login.forgotLink')}
+          </button>
         </div>
+        
     </AuthLayout>
   )
 }

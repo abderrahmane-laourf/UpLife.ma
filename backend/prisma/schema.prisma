@@ -9,7 +9,8 @@ datasource db {
 
 model User {
   id           Int      @id @default(autoincrement())
-  email        String   @unique
+  email        String?  @unique
+  phone        String?  @unique
   name         String?
   passwordHash String?
   createdAt    DateTime @default(now())
@@ -18,10 +19,12 @@ model User {
 
 model OtpRequest {
   id        Int      @id @default(autoincrement())
-  email     String
+  email     String?
+  phone     String?
   code      String
+  purpose   String   @default("password_reset")
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([email])
+  @@index([phone, purpose])
 }

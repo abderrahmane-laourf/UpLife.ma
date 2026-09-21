@@ -7,7 +7,7 @@ export function signAccessToken(user) {
   return jwt.sign(
     {
       id: user.id,
-      email: user.email,
+      phone: user.phone,
       role: user.role || 'user',
     },
     accessSecret,
@@ -19,7 +19,7 @@ export function signRefreshToken(user) {
   return jwt.sign(
     {
       id: user.id,
-      email: user.email,
+      phone: user.phone,
       type: 'refresh',
     },
     refreshSecret,
