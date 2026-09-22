@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
-import OtpInput from '../../components/auth/OtpInput.jsx'
+import CodeSlots from '../../components/common/CodeSlots.jsx'
 import Stepper, { Step } from '../../components/auth/Stepper.jsx'
 import { apiRequest } from '../../services/authService.js'
+import { isValidPhoneNumber, getPhoneValidationError } from '../../lib/validation.js'
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]'
 
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', phone: '', code: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [otpStatus, setOtpStatus] = useState('idle')
 
   function updateField(event) {
     setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
@@ -34,8 +36,9 @@ export default function RegisterPage() {
           return false
         }
 
-        if (!/^\+?[0-9\s()-]{8,20}$/.test(normalizedPhone)) {
-          setError(t('auth.register.phoneInvalid'))
+        // Use validation utility
+        if (!isValidPhoneNumber(normalizedPhone)) {
+          setError(getPhoneValidationError(normalizedPhone, t))
           return false
         }
 
@@ -130,7 +133,26 @@ export default function RegisterPage() {
           <div>
             <p className="text-sm leading-6 text-neutral-400">{t('auth.register.otpSubtitle', { phone: form.phone })}</p>
             <label className="mb-2 mt-6 block text-sm font-medium text-neutral-300">{t('auth.register.otp')}</label>
-            <OtpInput value={form.code} onChange={(code) => { setForm((currentForm) => ({ ...currentForm, code })); setError('') }} disabled={loading} />
+            <div className="flex justify-center">
+              <CodeSlots
+                length={6}
+                value={form.code}
+                status={otpStatus}
+                onChange={(code) => {
+                  setForm((currentForm) => ({ ...currentForm, code }))
+                  setOtpStatus('idle')
+                  setError('')
+                }}
+                onComplete={(code) => {
+                  setForm((currentForm) => ({ ...currentForm, code }))
+                }}
+                disabled={loading}
+                autoFocus
+                accentColor="#22C55E"
+                slotSize={56}
+                gap={12}
+              />
+            </div>
           </div>
         </Step>
 

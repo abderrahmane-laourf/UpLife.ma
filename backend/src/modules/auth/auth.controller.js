@@ -177,6 +177,7 @@ export async function login(req, res) {
         id: user.id,
         phone: user.phone,
         name: user.name,
+        role: user.role,
       },
       accessToken,
     });
@@ -273,6 +274,30 @@ export async function requestPasswordReset(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to request reset', error: error.message });
+  }
+}
+
+export async function verifyPasswordResetOtp(req, res) {
+  try {
+    const phone = normalizeWhatsAppNumber(req.body.phone);
+    const { code } = req.body;
+
+    if (!/^\d{8,15}$/.test(phone) || !code || !/^\d{6}$/.test(String(code))) {
+      return res.status(400).json({ message: 'Phone and a valid 6-digit code are required' });
+    }
+
+    const otpRequest = await prisma.otpRequest.findFirst({
+      where: { phone, code: String(code), purpose: 'password_reset' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRequest || otpRequest.expiresAt.getTime() < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired verification code' });
+    }
+
+    return res.json({ message: 'OTP verified successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'OTP verification failed', error: error.message });
   }
 }
 

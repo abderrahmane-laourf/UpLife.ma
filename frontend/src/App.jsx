@@ -1,31 +1,64 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './hooks/useAuth.jsx'
+import RoleGuard from './guards/RoleGuard.jsx'
+import AdminLayout from './layouts/AdminLayout.jsx'
+import UserLayout from './layouts/UserLayout.jsx'
+
+// Auth Pages
 import LoginPage from './pages/auth/LoginPage.jsx'
 import RegisterPage from './pages/auth/RegisterPage.jsx'
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage.jsx'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage.jsx'
 
-function DashboardPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
-      <div className="rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="mt-2 text-slate-600">Bienvenue dans UpLife</p>
-      </div>
-    </div>
-  )
-}
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import UsersManagement from './pages/admin/UsersManagement.jsx'
+
+// User Pages
+import UserDashboard from './pages/user/UserDashboard.jsx'
+import Profile from './pages/user/Profile.jsx'
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ResetPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout />
+              </RoleGuard>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<UsersManagement />} />
+            <Route path="settings" element={<div className="text-white">Settings Page</div>} />
+            <Route path="reports" element={<div className="text-white">Reports Page</div>} />
+          </Route>
+
+          {/* User Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <RoleGuard allowedRoles={['USER']}>
+                <UserLayout />
+              </RoleGuard>
+            }
+          >
+            <Route index element={<UserDashboard />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="activities" element={<div className="text-white">Activities Page</div>} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
