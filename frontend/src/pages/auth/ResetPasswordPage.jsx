@@ -16,8 +16,11 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [otpStatus, setOtpStatus] = useState('idle')
+<<<<<<< HEAD
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+=======
+>>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
 
   function updateField(event) {
     setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
@@ -150,6 +153,7 @@ export default function ResetPasswordPage() {
           <div className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.password')}</label>
+<<<<<<< HEAD
               <div className="relative">
                 <input 
                   name="newPassword" 
@@ -207,6 +211,13 @@ export default function ResetPasswordPage() {
                   )}
                 </button>
               </div>
+=======
+              <input name="newPassword" type="password" value={form.newPassword} onChange={updateField} required className={inputClass} placeholder={t('auth.reset.passwordPlaceholder')} />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.confirmPassword')}</label>
+              <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={updateField} required className={inputClass} placeholder={t('auth.reset.confirmPasswordPlaceholder')} />
+>>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
             </div>
           </div>
         </Step>

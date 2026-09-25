@@ -77,6 +77,7 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
             <div className="mb-4 flex justify-center">
               <BrandLogo />
             </div>
+<<<<<<< HEAD
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
               {title}
             </h1>
@@ -86,6 +87,13 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
               </p>
             )}
             
+=======
+              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                {title}
+              </h1>
+            
+            
+>>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
             <div className="mt-10 w-full sm:text-left">
               {children}
             </div>

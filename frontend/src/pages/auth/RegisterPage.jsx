@@ -16,8 +16,11 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [otpStatus, setOtpStatus] = useState('idle')
+<<<<<<< HEAD
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+=======
+>>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
 
   function updateField(event) {
     setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
