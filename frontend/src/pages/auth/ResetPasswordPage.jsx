@@ -1,36 +1,100 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
-import OtpInput from '../../components/auth/OtpInput.jsx'
+import CodeSlots from '../../components/common/CodeSlots.jsx'
+import Stepper, { Step } from '../../components/auth/Stepper.jsx'
 import { apiRequest } from '../../services/authService.js'
+import { isValidPhoneNumber, getPhoneValidationError } from '../../lib/validation.js'
+
+const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]'
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const location = useLocation()
-  const [form, setForm] = useState({ phone: location.state?.phone || '', code: '', newPassword: '' })
+  const [form, setForm] = useState({ phone: '', code: '', newPassword: '', confirmPassword: '' })
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [otpStatus, setOtpStatus] = useState('idle')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   function updateField(event) {
-    setForm({ ...form, [event.target.name]: event.target.value })
+    setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
+    setError('')
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  async function handleBeforeNext(step) {
     setError('')
-    setMessage('')
     setLoading(true)
 
     try {
-      const data = await apiRequest('/api/auth/reset-password', {
+      if (step === 1) {
+        const normalizedPhone = form.phone.trim()
+
+        // Use validation utility
+        if (!isValidPhoneNumber(normalizedPhone)) {
+          setError(getPhoneValidationError(normalizedPhone, t))
+          return false
+        }
+
+        setForm((currentForm) => ({ ...currentForm, phone: normalizedPhone }))
+
+        await apiRequest('/api/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ phone: normalizedPhone }),
+        })
+        return true
+      }
+
+      if (step === 2) {
+        if (!/^\d{6}$/.test(form.code)) {
+          setError(t('auth.reset.otpInvalid'))
+          return false
+        }
+
+        // ✅ Verify OTP with backend before moving to next step
+        await apiRequest('/api/auth/verify-password-otp', {
+          method: 'POST',
+          body: JSON.stringify({ phone: form.phone.trim(), code: form.code }),
+        })
+        return true
+      }
+
+      return true
+    } catch (requestError) {
+      setError(requestError.message)
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function completePasswordReset() {
+    setError('')
+
+    if (!form.newPassword || form.newPassword.length < 8) {
+      setError(t('auth.reset.passwordInvalid'))
+      return
+    }
+
+    if (form.newPassword !== form.confirmPassword) {
+      setError(form.newPassword ? t('auth.reset.passwordMismatch') : t('auth.reset.passwordRequired'))
+      return
+    }
+
+    setLoading(true)
+    try {
+      await apiRequest('/api/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify({ 
+          phone: form.phone.trim(), 
+          code: form.code, 
+          newPassword: form.newPassword 
+        }),
       })
-      setMessage(data.message)
-      setTimeout(() => navigate('/login'), 800)
+      navigate('/login', { state: { toast: t('auth.reset.success') }, replace: true })
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -41,24 +105,101 @@ export default function ResetPasswordPage() {
   return (
     <AuthLayout title={t('auth.reset.title')} subtitle={t('auth.reset.subtitle')} loading={loading} toast={error}>
 
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+      <Stepper
+        initialStep={1}
+        onBeforeNext={handleBeforeNext}
+        onFinalStepCompleted={completePasswordReset}
+        backButtonText={t('auth.reset.back')}
+        nextButtonText={t('auth.reset.next')}
+        completeButtonText={t('auth.reset.submit')}
+      >
+        <Step>
           <div>
             <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.phone')}</label>
-            <input name="phone" type="tel" value={form.phone} onChange={updateField} required className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]" placeholder={t('auth.reset.phonePlaceholder')} />
+            <input name="phone" type="tel" value={form.phone} onChange={updateField} required className={inputClass} placeholder={t('auth.reset.phonePlaceholder')} />
           </div>
+        </Step>
+
+        <Step>
           <div>
-            <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.password')}</label>
-            <input name="newPassword" type="password" value={form.newPassword} onChange={updateField} required className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]" placeholder={t('auth.reset.passwordPlaceholder')} />
+            <p className="text-sm leading-6 text-neutral-400">{t('auth.reset.otpSubtitle', { phone: form.phone })}</p>
+            <label className="mb-2 mt-6 block text-sm font-medium text-neutral-300">{t('auth.reset.otp')}</label>
+            <div className="flex justify-center">
+              <CodeSlots
+                length={6}
+                value={form.code}
+                status={otpStatus}
+                onChange={(code) => {
+                  setForm((currentForm) => ({ ...currentForm, code }))
+                  setOtpStatus('idle')
+                  setError('')
+                }}
+                onComplete={(code) => {
+                  setForm((currentForm) => ({ ...currentForm, code }))
+                }}
+                disabled={loading}
+                autoFocus
+                accentColor="#22C55E"
+                slotSize={56}
+                gap={12}
+              />
+            </div>
           </div>
+        </Step>
 
-          <OtpInput value={form.code} onChange={(code) => setForm({ ...form, code })} disabled={loading} />
+        <Step>
+          <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.password')}</label>
+              <div className="relative">
+                <input 
+                  name="newPassword" 
+                  type={showPassword ? "text" : "password"}
+                  value={form.newPassword} 
+                  onChange={updateField} 
+                  required 
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]"
+                  placeholder={t('auth.reset.passwordPlaceholder')} 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 transition-colors hover:text-white focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.reset.confirmPassword')}</label>
+              <div className="relative">
+                <input 
+                  name="confirmPassword" 
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={form.confirmPassword} 
+                  onChange={updateField} 
+                  required 
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]"
+                  placeholder={t('auth.reset.confirmPasswordPlaceholder')} 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 transition-colors hover:text-white focus:outline-none"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Step>
+      </Stepper>
 
-          {message && <p className="rounded-xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3 text-sm text-[#86EFAC]">{message}</p>}
-
-          <button type="submit" disabled={loading} className="mt-6 w-full rounded-xl bg-gradient-to-r from-[#22C55E] to-[#16A34A] px-4 py-3.5 font-bold text-black transition hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] disabled:cursor-not-allowed disabled:opacity-60">
-            {loading ? t('auth.reset.loading') : t('auth.reset.submit')}
-          </button>
-        </form>
+      <div className="mt-6 text-center text-sm font-medium">
+        <button type="button" onClick={() => navigate('/login')} className="text-[#22C55E] transition-colors hover:text-[#4ADE80]">{t('auth.reset.loginLink')}</button>
+      </div>
     </AuthLayout>
   )
 }

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ThemeToggle from './ThemeToggle.jsx'
 import LanguageSwitcher from './LanguageSwitcher.jsx'
-import Toast from './Toast.jsx'
+import BrandLogo from './BrandLogo.jsx'
+import SwipeToast from '../common/SwipeToast.jsx'
 import TopLoader from './TopLoader.jsx'
 
 const darkAuthImage = '/authimage.png'
@@ -13,9 +14,24 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
   const [theme, setTheme] = useState(() => localStorage.getItem('uplife-theme') || 'dark')
 
   return (
-    <main className={`auth-shell theme-${theme} relative flex h-screen w-full bg-[#050505] text-white selection:bg-[#22C55E] selection:text-black`}>
+    <main className={`auth-shell theme-${theme} relative flex h-screen w-full bg-white dark:bg-[#050505] text-zinc-900 dark:text-white selection:bg-[#22C55E] selection:text-black`}>
       <TopLoader visible={loading} />
-      <Toast message={toast} type={toastType} />
+      
+      {/* SwipeToast Notification */}
+      {toast && (
+        <SwipeToast
+          open={!!toast}
+          onClose={() => {}}
+          title={toast}
+          background={toastType === 'error' ? '#DC2626' : '#22C55E'}
+          color="#ffffff"
+          fuseColor={toastType === 'error' ? '#EF4444' : '#16A34A'}
+          duration={4000}
+          pauseOnHover
+          dismissible
+          closeButton={false}
+        />
+      )}
       
       {/* Grid me9soum 3la 2 - 50% left / 50% right */}
       <div className="relative z-10 grid h-full w-full lg:grid-cols-2">
@@ -56,11 +72,21 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
           </div>
 
           {/* Form Wrapper */}
-          <div className="w-full max-w-[420px]">
-            <h1 className="auth-title text-4xl font-extrabold tracking-tight text-white">{title}</h1>
-            <p className="auth-subtitle mt-3 text-base text-neutral-400">{subtitle}</p>
+          <div className="w-full max-w-[420px] text-center">
+            {/* Logo fo9 l form */}
+            <div className="mb-4 flex justify-center">
+              <BrandLogo />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="mt-2 text-sm text-zinc-600 dark:text-neutral-400">
+                {subtitle}
+              </p>
+            )}
             
-            <div className="mt-10 w-full">
+            <div className="mt-10 w-full sm:text-left">
               {children}
             </div>
           </div>
