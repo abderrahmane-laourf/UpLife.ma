@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Moon } from 'lucide-react'
 
 const STORAGE_KEY = 'uplife-theme'
 
@@ -38,9 +39,7 @@ export default function ThemeToggle({ onThemeChange }) {
         </svg>
       </span>
       <span className={`absolute transition-all duration-500 ease-out ${isDark ? '-rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} aria-hidden="true">
-        <svg className="h-5 w-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 15.5A8.5 8.5 0 0 1 8.5 3 8.5 8.5 0 1 0 21 15.5Z" />
-        </svg>
+        <Moon className="h-[22px] w-[22px] text-slate-700 transition-colors group-hover:text-slate-900 dark:text-neutral-300 dark:group-hover:text-white" strokeWidth={1.8} fill="none" />
       </span>
     </button>
   )

@@ -46,24 +46,7 @@ export default function AdminLayout() {
             })}
           </nav>
 
-          {/* User Info */}
-          <div className="border-t border-gray-700 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#22C55E] text-lg font-bold text-black">
-                {user?.name?.[0] || 'A'}
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-sm font-medium text-white">{user?.name}</p>
-                <p className="truncate text-xs text-gray-400">{user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={logout}
-              className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-            >
-              Logout
-            </button>
-          </div>
+
         </div>
       </aside>
 

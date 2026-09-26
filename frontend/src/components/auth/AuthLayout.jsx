@@ -63,21 +63,30 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
 
         {/* === JIHA DYAL L'FORM (RIGHT 50%) === */}
         {/* Hada b9a kima howa, mcentry w nadi */}
-        <section className="auth-panel relative flex h-full w-full flex-col items-center justify-center p-6 sm:p-12">
+        <section className="auth-panel relative flex h-full w-full flex-col items-center justify-center p-6 sm:p-12 overflow-hidden">
           
+          {/* Mobile Blurred Background (Visible only on smaller screens) */}
+          <div className="absolute inset-0 z-0 lg:hidden">
+            <img
+              src={theme === 'light' ? lightAuthImage : darkAuthImage}
+              alt="" 
+              className="h-full w-full object-cover opacity-60 dark:opacity-40"
+            />
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-xl dark:bg-[#050505]/70" />
+          </div>
+
           {/* Switcher lfou9 3la limn */}
-          <div className="absolute right-6 top-6 flex items-center gap-2 sm:right-8 sm:top-8">
+          <div className="absolute right-6 top-6 z-20 flex items-center gap-2 sm:right-8 sm:top-8">
             <ThemeToggle onThemeChange={setTheme} />
             <LanguageSwitcher />
           </div>
 
           {/* Form Wrapper */}
-          <div className="w-full max-w-[420px] text-center">
+          <div className="relative z-10 w-full max-w-[420px] text-center">
             {/* Logo fo9 l form */}
             <div className="mb-4 flex justify-center">
               <BrandLogo />
             </div>
-<<<<<<< HEAD
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
               {title}
             </h1>
@@ -87,13 +96,6 @@ export default function AuthLayout({ title, subtitle, children, loading = false,
               </p>
             )}
             
-=======
-              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                {title}
-              </h1>
-            
-            
->>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
             <div className="mt-10 w-full sm:text-left">
               {children}
             </div>

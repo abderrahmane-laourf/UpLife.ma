@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Eye, EyeOff } from 'lucide-react'
 import AuthLayout from '../../components/auth/AuthLayout.jsx'
 import CodeSlots from '../../components/common/CodeSlots.jsx'
 import Stepper, { Step } from '../../components/auth/Stepper.jsx'
 import { apiRequest } from '../../services/authService.js'
 import { isValidPhoneNumber, getPhoneValidationError } from '../../lib/validation.js'
 
-const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]'
+const inputClass = 'w-full rounded-xl border border-zinc-300 dark:!border-white/10 bg-white dark:!bg-[#ffffff0a] px-4 py-3 text-zinc-900 dark:!text-white placeholder-zinc-400 dark:!placeholder-neutral-500 outline-none transition-all duration-300 focus:border-[#22C55E] focus:bg-zinc-50 dark:focus:!bg-black/50 focus:ring-1 focus:ring-[#22C55E]'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -16,11 +17,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [otpStatus, setOtpStatus] = useState('idle')
-<<<<<<< HEAD
+
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-=======
->>>>>>> 910f0756070465cf157bfe1805ef612ef0de0b9e
 
   function updateField(event) {
     setForm((currentForm) => ({ ...currentForm, [event.target.name]: event.target.value }))
@@ -41,7 +40,6 @@ export default function RegisterPage() {
           return false
         }
 
-        // Use validation utility
         if (!isValidPhoneNumber(normalizedPhone)) {
           setError(getPhoneValidationError(normalizedPhone, t))
           return false
@@ -121,23 +119,49 @@ export default function RegisterPage() {
         nextButtonText={t('auth.register.next')}
         completeButtonText={t('auth.register.submit')}
       >
+        {/* Step 1: Name and Phone */}
         <Step>
           <div className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.name')}</label>
-              <input name="name" type="text" value={form.name} onChange={updateField} required className={inputClass} placeholder={t('auth.register.namePlaceholder')} />
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:!text-neutral-300">
+                {t('auth.register.name')}
+              </label>
+              <input 
+                name="name" 
+                type="text" 
+                value={form.name} 
+                onChange={updateField} 
+                required 
+                className={inputClass} 
+                placeholder={t('auth.register.namePlaceholder')} 
+              />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.phone')}</label>
-              <input name="phone" type="tel" value={form.phone} onChange={updateField} required className={inputClass} placeholder={t('auth.register.phonePlaceholder')} />
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:!text-neutral-300">
+                {t('auth.register.phone')}
+              </label>
+              <input 
+                name="phone" 
+                type="tel" 
+                value={form.phone} 
+                onChange={updateField} 
+                required 
+                className={inputClass} 
+                placeholder={t('auth.register.phonePlaceholder')} 
+              />
             </div>
           </div>
         </Step>
 
+        {/* Step 2: OTP Verification */}
         <Step>
           <div>
-            <p className="text-sm leading-6 text-neutral-400">{t('auth.register.otpSubtitle', { phone: form.phone })}</p>
-            <label className="mb-2 mt-6 block text-sm font-medium text-neutral-300">{t('auth.register.otp')}</label>
+            <p className="text-sm leading-6 text-zinc-600 dark:!text-neutral-400">
+              {t('auth.register.otpSubtitle', { phone: form.phone })}
+            </p>
+            <label className="mb-2 mt-6 block text-sm font-medium text-zinc-700 dark:!text-neutral-300">
+              {t('auth.register.otp')}
+            </label>
             <div className="flex justify-center">
               <CodeSlots
                 length={6}
@@ -161,10 +185,13 @@ export default function RegisterPage() {
           </div>
         </Step>
 
+        {/* Step 3: Password & Confirm Password */}
         <Step>
           <div className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.password')}</label>
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:!text-neutral-300">
+                {t('auth.register.password')}
+              </label>
               <div className="relative">
                 <input 
                   name="password" 
@@ -172,29 +199,24 @@ export default function RegisterPage() {
                   value={form.password} 
                   onChange={updateField} 
                   required 
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]"
+                  className={`${inputClass} pr-12`}
                   placeholder={t('auth.register.passwordPlaceholder')} 
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 dark:!text-neutral-400 transition-colors hover:text-zinc-900 dark:hover:!text-white focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
+
             <div>
-              <label className="mb-2 block text-sm font-medium text-neutral-300">{t('auth.register.confirmPassword')}</label>
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:!text-neutral-300">
+                {t('auth.register.confirmPassword')}
+              </label>
               <div className="relative">
                 <input 
                   name="confirmPassword" 
@@ -202,24 +224,16 @@ export default function RegisterPage() {
                   value={form.confirmPassword} 
                   onChange={updateField} 
                   required 
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder-neutral-500 outline-none transition focus:border-[#22C55E] focus:bg-black/50 focus:ring-1 focus:ring-[#22C55E]"
+                  className={`${inputClass} pr-12`}
                   placeholder={t('auth.register.confirmPasswordPlaceholder')} 
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 dark:!text-neutral-400 transition-colors hover:text-zinc-900 dark:hover:!text-white focus:outline-none"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                 >
-                  {showConfirmPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -228,7 +242,13 @@ export default function RegisterPage() {
       </Stepper>
 
       <div className="mt-6 text-center text-sm font-medium">
-        <button type="button" onClick={() => navigate('/login')} className="text-[#22C55E] transition-colors hover:text-[#4ADE80]">{t('auth.register.loginLink')}</button>
+        <button 
+          type="button" 
+          onClick={() => navigate('/login')} 
+          className="text-[#22C55E] transition-colors hover:text-[#4ADE80]"
+        >
+          {t('auth.register.loginLink')}
+        </button>
       </div>
     </AuthLayout>
   )

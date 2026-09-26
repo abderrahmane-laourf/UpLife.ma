@@ -15,7 +15,10 @@ import UsersManagement from './pages/admin/UsersManagement.jsx'
 
 // User Pages
 import UserDashboard from './pages/user/UserDashboard.jsx'
-import Profile from './pages/user/Profile.jsx'
+import SettingsPage from './pages/user/SettingsPage.jsx'
+import ActivitiesPage from './pages/user/ActivitiesPage.jsx'
+import NotesPage from './pages/user/NotesPage.jsx'
+import HistoryPage from './pages/user/HistoryPage.jsx'
 
 function App() {
   return (
@@ -54,8 +57,10 @@ function App() {
             }
           >
             <Route index element={<UserDashboard />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="activities" element={<div className="text-white">Activities Page</div>} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="activities" element={<ActivitiesPage />} />
+            <Route path="notes" element={<NotesPage />} />
+            <Route path="history" element={<HistoryPage />} />
           </Route>
         </Routes>
       </AuthProvider>

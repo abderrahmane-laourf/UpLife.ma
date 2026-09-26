@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   font-family: Inter, 'Segoe UI', sans-serif;
   line-height: 1.5;
@@ -26,6 +28,29 @@ body {
   margin: 0;
 }
 
+/* ==========================================
+   Chrome Autofill Fix (Dark & Light Mode)
+   ========================================== */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #090d0a inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.auth-shell.theme-light input:-webkit-autofill,
+.auth-shell.theme-light input:-webkit-autofill:hover, 
+.auth-shell.theme-light input:-webkit-autofill:focus, 
+.auth-shell.theme-light input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f7faf8 inset !important;
+  -webkit-text-fill-color: #17201b !important;
+}
+
+/* ==========================================
+   Loaders & Toasts
+   ========================================== */
 .top-loader {
   position: fixed;
   z-index: 100;
@@ -102,6 +127,9 @@ body {
   to { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
+/* ==========================================
+   Theme Light Styles
+   ========================================== */
 .auth-shell.theme-light {
   background: #eef3f0;
   color: #17201b;
@@ -121,6 +149,11 @@ body {
 
 .auth-shell.theme-light .auth-panel label {
   color: #344239;
+}
+
+.auth-shell[data-theme="dark"] .auth-panel label,
+.auth-shell.theme-dark .auth-panel label {
+  color: #d4d4d8;
 }
 
 .auth-shell.theme-light .auth-panel input {
@@ -164,27 +197,6 @@ body {
   color: #344239;
 }
 
-.auth-shell.theme-light .language-trigger {
-  border-color: #d7e0da;
-  background: #ffffff;
-  color: #344239;
-}
-
-.auth-shell.theme-light .language-menu {
-  border-color: #d7e0da;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 20px 40px rgba(26, 55, 38, 0.14);
-}
-
-.auth-shell.theme-light .language-menu button {
-  color: #344239;
-}
-
-.auth-shell.theme-light .language-menu button:hover {
-  background: #eef8f1;
-  color: #17201b;
-}
-
 .auth-shell.theme-light .auth-panel button.text-neutral-400 {
   color: #526259;
 }
@@ -195,6 +207,20 @@ body {
 
 button, input {
   font: inherit;
+}
+
+button, a {
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Ensure disabled buttons don't scale or show pointer */
+button:disabled {
+  cursor: not-allowed;
+  transform: none;
 }
 
 h1, h2, p {
