@@ -1,27 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth.jsx'
-
-// ─── Default Categories ───────────────────────────────────────────────────────
-const DEFAULT_CATEGORIES = [
-  { id: '1', label: 'Fitness',   color: '#22C55E' },
-  { id: '2', label: 'Health',    color: '#3B82F6' },
-  { id: '3', label: 'Wellness',  color: '#A855F7' },
-  { id: '4', label: 'Nutrition', color: '#F59E0B' },
-  { id: '5', label: 'Growth',    color: '#EC4899' },
-]
-
-function readCategories() {
-  try {
-    const val = localStorage.getItem('uplife-categories')
-    return val ? JSON.parse(val) : DEFAULT_CATEGORIES
-  } catch {
-    return DEFAULT_CATEGORIES
-  }
-}
-
-function writeCategories(cats) {
-  localStorage.setItem('uplife-categories', JSON.stringify(cats))
-}
+import { useCategories } from '../../hooks/useCategories.jsx'
+import SwipeToast from '../../components/common/SwipeToast.jsx'
 
 function readGoal() {
   try { return JSON.parse(localStorage.getItem('uplife-goal') || 'null') } catch { return null }
@@ -83,6 +63,7 @@ function Section({ title, subtitle, icon, children }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user, logout } = useAuth()
+  const { categories, loading: categoriesLoading, addCategory, removeCategory } = useCategories()
   const [activeTab, setActiveTab] = useState('profile')
 
   // Profile State
@@ -96,19 +77,29 @@ export default function SettingsPage() {
   const [goalSaved, setGoalSaved] = useState(false)
 
   // Categories State
-  const [categories, setCategories] = useState(readCategories)
   const [newCatLabel, setNewCatLabel] = useState('')
+  const [newCatDescription, setNewCatDescription] = useState('')
   const [newCatColor, setNewCatColor] = useState('#22C55E')
+  
+  // Toast State
+  const [toast, setToast] = useState({ open: false, message: '', type: 'success' })
 
   const initials = (user?.name || 'U').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
-  useEffect(() => {
-    writeCategories(categories)
-  }, [categories])
+  // Show toast helper
+  const showToast = (message, type = 'success') => {
+    setToast({ open: true, message, type })
+  }
+
+  // Close toast helper
+  const closeToast = () => {
+    setToast(prev => ({ ...prev, open: false }))
+  }
 
   function handleProfileSubmit(e) {
     e.preventDefault()
     setSaved(true)
+    showToast('Profile updated successfully!', 'success')
     setTimeout(() => setSaved(false), 3000)
   }
 
@@ -116,22 +107,69 @@ export default function SettingsPage() {
     e.preventDefault()
     writeGoal(goal)
     setGoalSaved(true)
+    showToast('Goal saved successfully!', 'success')
     setTimeout(() => setGoalSaved(false), 3000)
   }
 
-  function handleAddCategory(e) {
+  async function handleAddCategory(e) {
     e.preventDefault()
-    if (!newCatLabel.trim()) return
-    setCategories(prev => [...prev, { id: Date.now().toString(), label: newCatLabel.trim(), color: newCatColor }])
-    setNewCatLabel('')
+    if (!newCatLabel.trim()) {
+      showToast('Category name is required', 'error')
+      return
+    }
+    
+    const result = await addCategory({
+      name: newCatLabel.trim(),
+      color: newCatColor,
+      description: newCatDescription.trim()
+    })
+
+    if (result.success) {
+      setNewCatLabel('')
+      setNewCatDescription('')
+      showToast('Category added successfully!', 'success')
+    } else {
+      showToast(result.error || 'Failed to add category', 'error')
+    }
   }
 
-  function handleDeleteCategory(id) {
-    setCategories(prev => prev.filter(c => c.id !== id))
+  async function handleDeleteCategory(id) {
+    const result = await removeCategory(id)
+    
+    if (result.success) {
+      showToast('Category deleted successfully!', 'success')
+    } else {
+      showToast(result.error || 'Failed to delete category', 'error')
+    }
   }
 
   return (
     <div className="w-full space-y-6">
+      
+      {/* Toast Notifications */}
+      <SwipeToast
+        open={toast.open}
+        onClose={closeToast}
+        title={toast.type === 'success' ? 'Success' : 'Error'}
+        description={toast.message}
+        icon={
+          toast.type === 'success' ? (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )
+        }
+        background={toast.type === 'success' ? '#22C55E' : '#EF4444'}
+        color="#FFFFFF"
+        fuseColor="#FFFFFF"
+        duration={4000}
+        pauseOnHover={true}
+        dismissible={true}
+      />
 
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between">
@@ -235,10 +273,10 @@ export default function SettingsPage() {
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Category</p>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(c => (
-                    <button key={c.id} type="button" onClick={() => setGoal(p => ({ ...p, category: c.label }))}
+                    <button key={c.id} type="button" onClick={() => setGoal(p => ({ ...p, category: c.name }))}
                       className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
-                      style={{ borderColor: goal.category === c.label ? c.color : 'transparent', background: goal.category === c.label ? `${c.color}18` : 'rgba(128,128,128,0.08)', color: goal.category === c.label ? c.color : '#9ca3af' }}>
-                      {c.label}
+                      style={{ borderColor: goal.category === c.name ? c.color : 'transparent', background: goal.category === c.name ? `${c.color}18` : 'rgba(128,128,128,0.08)', color: goal.category === c.name ? c.color : '#9ca3af' }}>
+                      {c.name}
                     </button>
                   ))}
                 </div>
@@ -263,48 +301,79 @@ export default function SettingsPage() {
           <Section title="Activity Categories" subtitle="Manage the categories you can assign to your tasks" icon={
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
           }>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-              {categories.map(c => (
-                <div key={c.id} className="group relative flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.02]">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-4 w-4 rounded-full shadow-sm" style={{ backgroundColor: c.color }}></span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{c.label}</span>
-                  </div>
-                  <button onClick={() => handleDeleteCategory(c.id)} className="rounded-lg p-1.5 text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500">
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-gray-100 dark:border-white/5 pt-6">
-              <h4 className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4">Add New Category</h4>
-              <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row items-start gap-4">
-                <div className="flex-1 w-full">
-                  <Input id="newCat" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="Category Name" />
-                </div>
-                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2 dark:border-white/10 dark:bg-white/[0.04]">
-                  {[
-                    '#22C55E', // Green
-                    '#3B82F6', // Blue
-                    '#A855F7', // Purple
-                    '#F59E0B', // Orange
-                    '#EC4899', // Pink
-                    '#EF4444', // Red
-                    '#06B6D4', // Cyan
-                  ].map(color => (
-                    <button key={color} type="button" onClick={() => setNewCatColor(color)}
-                      className={`h-8 w-8 rounded-lg transition-transform ${newCatColor === color ? 'scale-110 shadow-md ring-2 ring-offset-2 ring-offset-white dark:ring-offset-black' : 'hover:scale-105'}`}
-                      style={{ backgroundColor: color, ringColor: color }} />
+            {categoriesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#22C55E] border-t-transparent"></div>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+                  {categories.map(c => (
+                    <div key={c.id} className="group relative flex flex-col rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02] transition-all hover:shadow-md">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-4 w-4 flex-shrink-0 rounded-full shadow-sm" style={{ backgroundColor: c.color }}></span>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">{c.name}</span>
+                        </div>
+                        <button onClick={() => handleDeleteCategory(c.id)} className="rounded-lg p-1.5 text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                      {c.description && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 pl-7">{c.description}</p>
+                      )}
+                    </div>
                   ))}
                 </div>
-                <button type="submit" className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-6 py-3 text-sm font-semibold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
-                  Add
-                </button>
-              </form>
-            </div>
+
+                <div className="border-t border-gray-100 dark:border-white/5 pt-6">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4">Add New Category</h4>
+                  <form onSubmit={handleAddCategory} className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="flex-1 w-full">
+                        <label htmlFor="newCat" className="mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">Category Name</label>
+                        <Input id="newCat" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="e.g. Fitness" />
+                      </div>
+                      <div className="flex-1 w-full">
+                        <label htmlFor="newCatDesc" className="mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">Description (Optional)</label>
+                        <Input id="newCatDesc" value={newCatDescription} onChange={e => setNewCatDescription(e.target.value)} placeholder="e.g. Physical activities and workouts" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                      <div className="flex-1">
+                        <label className="mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400">Color</label>
+                        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2 dark:border-white/10 dark:bg-white/[0.04]">
+                          {[
+                            '#22C55E', // Green
+                            '#3B82F6', // Blue
+                            '#A855F7', // Purple
+                            '#F59E0B', // Orange
+                            '#EC4899', // Pink
+                            '#EF4444', // Red
+                            '#06B6D4', // Cyan
+                          ].map(color => (
+                            <button key={color} type="button" onClick={() => setNewCatColor(color)}
+                              className={`h-8 w-8 rounded-lg transition-transform ${newCatColor === color ? 'scale-110 shadow-md ring-2 ring-offset-2 ring-offset-white dark:ring-offset-black' : 'hover:scale-105'}`}
+                              style={{ backgroundColor: color, ringColor: color }} 
+                              title={color}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <button type="submit" className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-6 py-3 text-sm font-semibold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Category
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
           </Section>
         </div>
       )}

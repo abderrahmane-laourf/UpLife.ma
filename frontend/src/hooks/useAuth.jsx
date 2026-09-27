@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiRequest, setAccessToken, clearAccessToken } from '../services/authService.js'
 
 const AuthContext = createContext(null)
 
@@ -9,27 +10,33 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Check if user is logged in
-    const accessToken = localStorage.getItem('accessToken')
-    const savedUser = localStorage.getItem('user')
-    
-    if (accessToken && savedUser) {
+    // Try to restore session from refresh token (stored in httpOnly cookie)
+    const restoreSession = async () => {
       try {
-        setUser(JSON.parse(savedUser))
+        const data = await apiRequest('/api/auth/refresh', { method: 'POST' })
+        setAccessToken(data.accessToken)
+        
+        // Get user info (you can add a /me endpoint or decode from token)
+        const savedUser = localStorage.getItem('user')
+        if (savedUser) {
+          setUser(JSON.parse(savedUser))
+        }
       } catch (error) {
-        console.error('Failed to parse user:', error)
+        console.log('No valid session found')
+        clearAccessToken()
         localStorage.removeItem('user')
-        localStorage.removeItem('accessToken')
+      } finally {
+        setLoading(false)
       }
     }
-    
-    setLoading(false)
+
+    restoreSession()
   }, [])
 
   const login = (userData, accessToken) => {
     setUser(userData)
+    setAccessToken(accessToken)
     localStorage.setItem('user', JSON.stringify(userData))
-    localStorage.setItem('accessToken', accessToken)
     
     // Redirect based on role
     if (userData.role === 'ADMIN') {
@@ -39,11 +46,17 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem('user')
-    localStorage.removeItem('accessToken')
-    navigate('/login')
+  const logout = async () => {
+    try {
+      await apiRequest('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setUser(null)
+      clearAccessToken()
+      localStorage.removeItem('user')
+      navigate('/login')
+    }
   }
 
   const value = {

@@ -50,13 +50,46 @@ function TaskModal({ mode, initial, onSave, onClose }) {
   const [description, setDescription] = useState(initial?.description || '')
   const [time,        setTime]        = useState(initial?.time        || '')
   const [category,    setCategory]    = useState(initial?.category    || 'Fitness')
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
   const ref = useRef(null)
-  useEffect(() => ref.current?.focus(), [])
+
+  // Fetch categories from API
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch('http://localhost:3000/api/categories', {
+          credentials: 'include',
+        })
+        const data = await response.json()
+        if (data.categories && data.categories.length > 0) {
+          setCategories(data.categories)
+          // If no category is set, use the first one
+          if (!category && data.categories.length > 0) {
+            setCategory(data.categories[0].name)
+          }
+        } else {
+          // Fallback to default categories
+          setCategories(DEFAULT_CATEGORIES)
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+        // Fallback to default categories
+        setCategories(DEFAULT_CATEGORIES)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchCategories()
+    ref.current?.focus()
+  }, [])
 
   function submit(e) {
     e.preventDefault()
     if (!title.trim()) return
-    const cat = getCat(category)
+    const selectedCat = categories.find(c => c.name === category)
+    const cat = selectedCat || { name: category, color: '#9ca3af' }
     onSave({ title: title.trim(), description: description.trim(), time: time.trim(), category, categoryColor: cat.color })
   }
 
@@ -103,19 +136,25 @@ function TaskModal({ mode, initial, onSave, onClose }) {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Category</label>
-            <div className="flex flex-wrap gap-2">
-              {getCategories().map(c => (
-                <button key={c.label} type="button" onClick={() => setCategory(c.label)}
-                  className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
-                  style={{
-                    borderColor: category === c.label ? c.color : 'transparent',
-                    background:  category === c.label ? `${c.color}18` : 'rgba(128,128,128,0.08)',
-                    color:       category === c.label ? c.color : '#9ca3af',
-                  }}>
-                  {c.label}
-                </button>
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#22C55E] border-t-transparent"></div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {categories.map(c => (
+                  <button key={c.id || c.label} type="button" onClick={() => setCategory(c.name || c.label)}
+                    className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
+                    style={{
+                      borderColor: category === (c.name || c.label) ? c.color : 'transparent',
+                      background:  category === (c.name || c.label) ? `${c.color}18` : 'rgba(128,128,128,0.08)',
+                      color:       category === (c.name || c.label) ? c.color : '#9ca3af',
+                    }}>
+                    {c.name || c.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-1">

@@ -43,7 +43,7 @@ router.post(
 router.post('/register/complete', completeRegistration);
 
 // Refresh Token - No rate limit (uses secure cookie)
-router.post('/refresh-token', refreshToken);
+router.post('/refresh', refreshToken);
 
 // Logout - Requires auth, no rate limit needed
 router.post('/logout', authMiddleware, logout);

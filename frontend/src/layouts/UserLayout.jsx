@@ -1,8 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.jsx'
 import BranchedMenu from '../components/common/BranchedMenu.jsx'
 import LanguageSwitcher from '../components/auth/LanguageSwitcher.jsx'
+import { Monitor, Sun, Moon } from 'lucide-react'
+
+// Get system preference
+function getSystemTheme() {
+  if (typeof window === 'undefined') return 'dark'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+// Get initial theme mode (system/light/dark)
+function getInitialTheme() {
+  const savedTheme = localStorage.getItem('uplife-theme')
+  if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+    return savedTheme
+  }
+  return 'system'
+}
+
+// Get actual theme to apply
+function getResolvedTheme(themeMode) {
+  if (themeMode === 'system') {
+    return getSystemTheme()
+  }
+  return themeMode
+}
 
 const menuItems = [
   {
@@ -57,19 +81,63 @@ export default function UserLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem('uplife-theme') || 'dark')
+  const [themeMode, setThemeMode] = useState(getInitialTheme)
+  const [resolvedTheme, setResolvedTheme] = useState(() => getResolvedTheme(getInitialTheme()))
   const [searchFocused, setSearchFocused] = useState(false)
+
+  // Apply theme
+  useEffect(() => {
+    const resolved = getResolvedTheme(themeMode)
+    setResolvedTheme(resolved)
+    
+    if (resolved === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    
+    document.documentElement.dataset.theme = resolved
+    localStorage.setItem('uplife-theme', themeMode)
+  }, [themeMode])
+
+  // Listen for system theme changes
+  useEffect(() => {
+    if (themeMode !== 'system') return
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => {
+      const newResolved = getSystemTheme()
+      setResolvedTheme(newResolved)
+      
+      if (newResolved === 'dark') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+      
+      document.documentElement.dataset.theme = newResolved
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [themeMode])
 
   const handleMenuSelect = (value) => {
     navigate(value)
     setSidebarOpen(false)
   }
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(newTheme)
-    localStorage.setItem('uplife-theme', newTheme)
+  const cycleTheme = () => {
+    setThemeMode((current) => {
+      // Cycle: system → light → dark → system
+      if (current === 'system') return 'light'
+      if (current === 'light') return 'dark'
+      return 'system'
+    })
   }
+
+  const theme = resolvedTheme
+  const isSystem = themeMode === 'system'
 
   const bgColor = theme === 'dark' ? 'bg-black' : 'bg-gray-50'
   const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900'
@@ -161,22 +229,20 @@ export default function UserLayout() {
           <div className="flex items-center gap-3">
             {/* Theme Toggle */}
             <button
-              onClick={toggleTheme}
+              onClick={cycleTheme}
               className={`p-2 rounded-xl ${
                 theme === 'dark' 
                   ? 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white' 
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
               } transition-all`}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              title={isSystem ? 'System theme (click to switch)' : (theme === 'dark' ? 'Dark mode (click to switch)' : 'Light mode (click to switch)')}
             >
-              {theme === 'dark' ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
+              {isSystem ? (
+                <Monitor className="w-5 h-5" strokeWidth={2} />
+              ) : theme === 'dark' ? (
+                <Moon className="w-5 h-5" strokeWidth={2} />
               ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
+                <Sun className="w-5 h-5" strokeWidth={2} />
               )}
             </button>
 

@@ -4,6 +4,10 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import prisma from './lib/prisma.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import categorieRoutes from './modules/categories/categorie.routes.js';
+import activityRoutes from './modules/activities/activity.routes.js';
+import noteRoutes from './modules/notes/note.routes.js';
+import reviewRoutes from './modules/reviews/review.routes.js';
 import './queues/whatsapp.queue.js';
 
 const app = express();
@@ -30,6 +34,10 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api/auth', authRoutes);
+app.use('/api/categories', categorieRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.get('/', (req, res) => {
   res.json({
