@@ -19,6 +19,7 @@ import SettingsPage from './pages/user/SettingsPage.jsx'
 import ActivitiesPage from './pages/user/ActivitiesPage.jsx'
 import NotesPage from './pages/user/NotesPage.jsx'
 import HistoryPage from './pages/user/HistoryPage.jsx'
+import TimerPage from './pages/user/TimerPage.jsx'
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
             <Route path="activities" element={<ActivitiesPage />} />
             <Route path="notes" element={<NotesPage />} />
             <Route path="history" element={<HistoryPage />} />
+            <Route path="timer" element={<TimerPage />} />
           </Route>
         </Routes>
       </AuthProvider>
