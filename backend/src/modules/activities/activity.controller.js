@@ -37,6 +37,8 @@ export async function getAllActivities(req, res) {
         description: activity.description,
         time: activity.time,
         done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
         category: activity.category.name,
         categoryColor: activity.category.color,
         categoryId: activity.category.id,
@@ -91,6 +93,8 @@ export async function getActivityById(req, res) {
         description: activity.description,
         time: activity.time,
         done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
         category: activity.category.name,
         categoryColor: activity.category.color,
         categoryId: activity.category.id,
@@ -168,6 +172,8 @@ export async function createActivity(req, res) {
         description: activity.description,
         time: activity.time,
         done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
         category: activity.category.name,
         categoryColor: activity.category.color,
         categoryId: activity.category.id,
@@ -193,7 +199,7 @@ export async function updateActivity(req, res) {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { title, description, time, categoryId, done } = req.body;
+    const { title, description, time, categoryId, done, dayCompleted } = req.body;
 
     // Check if activity exists and belongs to user
     const existingActivity = await prisma.activity.findFirst({
@@ -227,6 +233,7 @@ export async function updateActivity(req, res) {
         ...(time !== undefined && { time: time?.trim() || null }),
         ...(categoryId && { categoryId: parseInt(categoryId) }),
         ...(done !== undefined && { done: Boolean(done) }),
+        ...(dayCompleted !== undefined && { dayCompleted: Boolean(dayCompleted) }),
       },
       include: {
         category: {
@@ -247,6 +254,8 @@ export async function updateActivity(req, res) {
         description: activity.description,
         time: activity.time,
         done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
         category: activity.category.name,
         categoryColor: activity.category.color,
         categoryId: activity.category.id,
@@ -346,6 +355,8 @@ export async function toggleActivityDone(req, res) {
         description: activity.description,
         time: activity.time,
         done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
         category: activity.category.name,
         categoryColor: activity.category.color,
         categoryId: activity.category.id,
@@ -539,6 +550,110 @@ export async function moveUnfinishedToMissed(req, res) {
     console.error('Move to missed error:', error);
     return res.status(500).json({
       message: 'Failed to move activities',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Mark all activities as day completed for today
+ * PATCH /api/activities/mark-day-complete
+ */
+export async function markDayComplete(req, res) {
+  try {
+    const userId = req.user.id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Update all today's activities to mark day as complete
+    const result = await prisma.activity.updateMany({
+      where: {
+        userId,
+        date: today,
+      },
+      data: {
+        dayCompleted: true,
+      },
+    });
+
+    return res.json({
+      message: 'Day marked as complete',
+      updated: result.count,
+    });
+  } catch (error) {
+    console.error('Mark day complete error:', error);
+    return res.status(500).json({
+      message: 'Failed to mark day as complete',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Update prayer status for an activity
+ * PATCH /api/activities/:id/prayer-status
+ */
+export async function updatePrayerStatus(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { prayerStatus } = req.body;
+
+    // Validate prayer status
+    if (prayerStatus !== true && prayerStatus !== false && prayerStatus !== null) {
+      return res.status(400).json({ message: 'Prayer status must be true, false, or null' });
+    }
+
+    // Check if activity exists and belongs to user
+    const existingActivity = await prisma.activity.findFirst({
+      where: {
+        id: parseInt(id),
+        userId,
+      },
+    });
+
+    if (!existingActivity) {
+      return res.status(404).json({ message: 'Activity not found' });
+    }
+
+    const activity = await prisma.activity.update({
+      where: { id: parseInt(id) },
+      data: {
+        prayerStatus: prayerStatus,
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      message: 'Prayer status updated successfully',
+      activity: {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        time: activity.time,
+        done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
+        category: activity.category.name,
+        categoryColor: activity.category.color,
+        categoryId: activity.category.id,
+        date: activity.date,
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Update prayer status error:', error);
+    return res.status(500).json({
+      message: 'Failed to update prayer status',
       error: error.message,
     });
   }

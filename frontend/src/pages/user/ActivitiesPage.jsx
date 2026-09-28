@@ -219,6 +219,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
             </span>
           </div>
         )}
+
       </div>
 
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -306,12 +307,74 @@ function MissedTaskCard({ task, onSubmitReason }) {
   )
 }
 
+// ─── End Day Modal ────────────────────────────────────────────────────────────
+function EndDayModal({ pendingCount, onConfirm, onClose }) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#111]"
+        style={{ animation: 'modalIn 0.18s ease' }}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/10">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+            Slit Nhar (End of Day)
+          </h3>
+          <button onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-white">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="rounded-xl bg-orange-500/10 p-4 text-center">
+            <div className="text-4xl mb-2">⚠️</div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {pendingCount} task{pendingCount !== 1 ? 's' : ''} mazal ma kmlti
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+              Ghadi nmchiwhom l "Missed Activities" bach tzid sabab
+            </p>
+          </div>
+
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <p>Ila clickiti "Slit Nhar":</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Les tasks li ma kmltihoumch ghadi ymchiw l "Missed"</li>
+              <li>Khassek tzid sabab 3lach ma drtihomch</li>
+              <li>Nhar jdid ghadi ytfat</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5">
+              Mazal (Cancel)
+            </button>
+            <button type="button" onClick={onConfirm}
+              className="flex-1 rounded-xl bg-[#22C55E] py-2.5 text-sm font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
+              Iyeh, Slit Nhar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ActivitiesPage() {
   const [tasks,  setTasks]  = useState(() => readStorage(STORAGE_KEYS.TASKS, []))
   const [missedTasks, setMissedTasks] = useState(() => readStorage(STORAGE_KEYS.MISSED, []))
   const [filter, setFilter] = useState('all') // 'all' | 'pending' | 'done' | 'missed'
   const [modal,  setModal]  = useState(null)
+  const [showEndDayModal, setShowEndDayModal] = useState(false)
 
   // Daily Reset Check
   useEffect(() => {
@@ -349,6 +412,7 @@ export default function ActivitiesPage() {
 
   const completed = tasks.filter(t => t.done).length
   const total     = tasks.length
+  const pending   = total - completed
   const progress  = total === 0 ? 0 : Math.round((completed / total) * 100)
 
   function handleAdd(data)  { setTasks(p => [{ id: uid(), done: false, ...data }, ...p]); setModal(null) }
@@ -362,6 +426,38 @@ export default function ActivitiesPage() {
       writeStorage(STORAGE_KEYS.MISSED, updated)
       return updated
     })
+  }
+
+  function handleEndDay() {
+    const pendingTasks = tasks.filter(t => !t.done)
+    if (pendingTasks.length === 0) {
+      alert('Makayn ta task pending! Kolchi kaml 🎉')
+      return
+    }
+    setShowEndDayModal(true)
+  }
+
+  function handleConfirmEndDay() {
+    const today = new Date().toDateString()
+    const pendingTasks = tasks.filter(t => !t.done).map(t => ({
+      ...t,
+      reason: '',
+      missedDate: today
+    }))
+
+    if (pendingTasks.length > 0) {
+      setMissedTasks(prev => {
+        const newMissed = [...pendingTasks, ...prev]
+        writeStorage(STORAGE_KEYS.MISSED, newMissed)
+        return newMissed
+      })
+    }
+
+    // Clear today's tasks or mark as reviewed
+    setTasks([])
+    writeStorage(STORAGE_KEYS.TASKS, [])
+    setShowEndDayModal(false)
+    setFilter('missed') // Switch to missed tab to add reasons
   }
 
   const filtered = tasks.filter(t => {
@@ -386,13 +482,22 @@ export default function ActivitiesPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Activities</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Track your daily activities and wellness goals.</p>
           </div>
-          <button onClick={() => setModal({ mode: 'add' })}
-            className="flex items-center gap-2 rounded-xl bg-[#22C55E] px-4 py-2.5 text-sm font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Activity
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleEndDay}
+              className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 transition hover:-translate-y-0.5 hover:bg-orange-600">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+              Slit Nhar
+            </button>
+            <button onClick={() => setModal({ mode: 'add' })}
+              className="flex items-center gap-2 rounded-xl bg-[#22C55E] px-4 py-2.5 text-sm font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Activity
+            </button>
+          </div>
         </div>
 
         {/* Progress Card */}
@@ -404,6 +509,26 @@ export default function ActivitiesPage() {
               <p className="text-sm font-medium opacity-80">Today's Progress</p>
               <p className="mt-1 text-4xl font-bold">{progress}%</p>
               <p className="mt-1 text-sm opacity-70">{completed} of {total} activities completed</p>
+              
+              {/* Day Completed Badge */}
+              {completed > 0 && completed === total && (
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 text-xs font-bold">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Day Completed! 🎉
+                </div>
+              )}
+              
+              {/* Tasks Left */}
+              {pending > 0 && (
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/15 px-3 py-1.5 text-xs font-bold">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {pending} task{pending !== 1 ? 's' : ''} left
+                </div>
+              )}
             </div>
             <div className="relative flex h-20 w-20 items-center justify-center">
               <svg className="h-20 w-20 -rotate-90" viewBox="0 0 80 80">
@@ -489,6 +614,14 @@ export default function ActivitiesPage() {
           initial={modal.task}
           onSave={modal.mode === 'add' ? handleAdd : handleEdit}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {showEndDayModal && (
+        <EndDayModal
+          pendingCount={tasks.filter(t => !t.done).length}
+          onConfirm={handleConfirmEndDay}
+          onClose={() => setShowEndDayModal(false)}
         />
       )}
     </>

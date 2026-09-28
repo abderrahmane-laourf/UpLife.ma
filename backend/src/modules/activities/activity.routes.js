@@ -9,6 +9,8 @@ import {
   getMissedActivities,
   updateMissedActivityReason,
   moveUnfinishedToMissed,
+  markDayComplete,
+  updatePrayerStatus,
 } from './activity.controller.js';
 import { getDashboardStats, getDailyCompletionTrend } from './activity.stats.js';
 import { authMiddleware } from '../auth/auth.middleware.js';
@@ -49,6 +51,12 @@ router.delete('/:id', deleteActivity);
 
 // Toggle activity done status
 router.patch('/:id/toggle', toggleActivityDone);
+
+// Update prayer status
+router.patch('/:id/prayer-status', updatePrayerStatus);
+
+// Mark day as complete for all today's activities
+router.patch('/day-complete', markDayComplete);
 
 /**
  * Missed activities routes

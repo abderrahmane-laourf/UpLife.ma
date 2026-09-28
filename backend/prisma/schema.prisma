@@ -7,62 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  USER
-  ADMIN
-}
-
 model User {
-  id           Int         @id @default(autoincrement())
-  email        String?     @unique
-  phone        String?     @unique
-  name         String?
-  passwordHash String?
-  role         UserRole    @default(USER)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  activities   Activity[]
+  id               Int              @id @default(autoincrement())
+  email            String?          @unique
+  name             String?
+  passwordHash     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  phone            String?          @unique
+  role             UserRole         @default(USER)
+  activities       Activity[]
+  dailyReviews     DailyReview[]
   missedActivities MissedActivity[]
-  notes        Note[]
-  dailyReviews DailyReview[]
+  notes            Note[]
 }
 
 model OtpRequest {
   id        Int      @id @default(autoincrement())
   email     String?
-  phone     String?
   code      String
-  purpose   String   @default("password_reset")
   expiresAt DateTime
   createdAt DateTime @default(now())
+  phone     String?
+  purpose   String   @default("password_reset")
 
   @@index([phone, purpose])
 }
 
 model Category {
-  id          Int         @id @default(autoincrement())
-  name        String      @unique
-  description String?
-  color       String      @default("#22C55E")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  activities  Activity[]
+  id               Int              @id @default(autoincrement())
+  name             String           @unique
+  description      String?
+  color            String           @default("#22C55E")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  activities       Activity[]
   missedActivities MissedActivity[]
 }
 
 model Activity {
   id          Int      @id @default(autoincrement())
   userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  time        String?  // e.g. "7:00 AM" or "Today, 7:00 AM"
+  time        String?
   done        Boolean  @default(false)
-  date        DateTime @default(now()) @db.Date // Date for which this activity is scheduled
+  date        DateTime @default(now()) @db.Date
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
   @@index([categoryId])
@@ -71,15 +66,15 @@ model Activity {
 model MissedActivity {
   id          Int      @id @default(autoincrement())
   userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   title       String
   description String?
   time        String?
-  reason      String?  // Why was this activity missed
-  missedDate  DateTime @db.Date // Date when the activity was missed
+  reason      String?
+  missedDate  DateTime @db.Date
   createdAt   DateTime @default(now())
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, missedDate])
   @@index([categoryId])
@@ -88,12 +83,12 @@ model MissedActivity {
 model Note {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String?
-  content   String   @db.Text
+  content   String
   color     String   @default("#22C55E")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -101,15 +96,20 @@ model Note {
 model DailyReview {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime @unique @db.Date // One review per day
-  mood      Int      // 1-5 scale: 1=Terrible, 2=Bad, 3=Okay, 4=Good, 5=Amazing
-  learned   String   @db.Text // What did you learn today?
-  tomorrow  String   @db.Text // What's your goal for tomorrow?
-  highlight String?  @db.Text // Best moment of the day (optional)
-  challenge String?  @db.Text // What was challenging? (optional)
+  date      DateTime @unique @db.Date
+  mood      Int
+  learned   String
+  tomorrow  String
+  highlight String?
+  challenge String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }

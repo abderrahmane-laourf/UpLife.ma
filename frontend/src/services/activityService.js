@@ -202,3 +202,24 @@ export async function getDailyCompletionTrend() {
     method: 'GET',
   });
 }
+
+/**
+ * Update prayer status for an activity
+ */
+export async function updatePrayerStatus(id, prayerStatus) {
+  const response = await fetch(`${API_URL}/api/activities/${id}/prayer-status`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prayerStatus }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update prayer status');
+  }
+
+  return response.json();
+}
