@@ -1,3 +1,5 @@
+import { apiRequest } from './authService';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 /**
@@ -181,4 +183,22 @@ export async function moveUnfinishedToMissed() {
   }
 
   return response.json();
+}
+
+/**
+ * Get dashboard statistics
+ */
+export async function getDashboardStats() {
+  return apiRequest('/api/activities/stats/dashboard', {
+    method: 'GET',
+  });
+}
+
+/**
+ * Get daily completion trend (last 30 days)
+ */
+export async function getDailyCompletionTrend() {
+  return apiRequest('/api/activities/stats/daily-trend', {
+    method: 'GET',
+  });
 }

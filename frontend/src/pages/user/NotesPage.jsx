@@ -1,25 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { getAllNotes, createNote, updateNote, deleteNote } from '../../services/noteService'
 
-// ─── Local Storage Helpers ──────────────────────────────────────────────────
-const STORAGE_KEY = 'uplife-notes'
-
-let _uid = Date.now()
-const uid = () => ++_uid
-
-function readNotes() {
-  try {
-    const val = localStorage.getItem(STORAGE_KEY)
-    return val ? JSON.parse(val) : []
-  } catch {
-    return []
-  }
-}
-
-function writeNotes(notes) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
-}
-
+// ─── Note Colors ──────────────────────────────────────────────────────────────
 const NOTE_COLORS = [
   '#22C55E', // Green
   '#3B82F6', // Blue
@@ -128,7 +111,7 @@ function NoteModal({ mode, initial, onSave, onClose }) {
 }
 
 // ─── Note Card ────────────────────────────────────────────────────────────────
-function NoteCard({ note, onEdit, onDelete }) {
+function NoteCard({ note, onEdit, onDelete, deleting }) {
   return (
     <div 
       className="group relative mb-4 break-inside-avoid rounded-2xl p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
@@ -141,15 +124,30 @@ function NoteCard({ note, onEdit, onDelete }) {
           </h3>
         )}
         <div className="flex opacity-0 transition-opacity group-hover:opacity-100 flex-shrink-0 bg-white/50 dark:bg-black/20 rounded-lg p-0.5 backdrop-blur-sm">
-          <button onClick={() => onEdit(note)} className="rounded p-1 text-gray-500 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white transition">
+          <button 
+            onClick={() => onEdit(note)} 
+            disabled={deleting}
+            className="rounded p-1 text-gray-500 hover:bg-black/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white transition disabled:opacity-50"
+          >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          <button onClick={() => onDelete(note.id)} className="rounded p-1 text-gray-500 hover:bg-red-500/10 hover:text-red-500 dark:text-gray-400 dark:hover:bg-red-500/20 transition">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+          <button 
+            onClick={() => onDelete(note.id)} 
+            disabled={deleting}
+            className="rounded p-1 text-gray-500 hover:bg-red-500/10 hover:text-red-500 dark:text-gray-400 dark:hover:bg-red-500/20 transition disabled:opacity-50"
+          >
+            {deleting ? (
+              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
@@ -169,33 +167,72 @@ function NoteCard({ note, onEdit, onDelete }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function NotesPage() {
-  const [notes, setNotes] = useState(() => readNotes())
+  const [notes, setNotes] = useState([])
   const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
+  // Fetch notes on mount and when search changes (debounced)
   useEffect(() => {
-    writeNotes(notes)
-  }, [notes])
+    const timer = setTimeout(() => {
+      fetchNotes()
+    }, search ? 300 : 0) // Debounce search
 
-  function handleAdd(data) { 
-    setNotes(p => [{ id: uid(), createdAt: new Date().toISOString(), ...data }, ...p])
-    setModal(null) 
+    return () => clearTimeout(timer)
+  }, [search])
+
+  async function fetchNotes() {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getAllNotes(search)
+      setNotes(data.notes)
+    } catch (err) {
+      console.error('Failed to fetch notes:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAdd(data) { 
+    try {
+      const result = await createNote(data)
+      setNotes(prev => [result.note, ...prev])
+      setModal(null)
+    } catch (err) {
+      console.error('Failed to create note:', err)
+      alert('Failed to create note: ' + err.message)
+    }
   }
   
-  function handleEdit(data) { 
-    setNotes(p => p.map(n => n.id === modal.note.id ? { ...n, ...data } : n))
-    setModal(null) 
+  async function handleEdit(data) { 
+    try {
+      const result = await updateNote(modal.note.id, data)
+      setNotes(prev => prev.map(n => n.id === modal.note.id ? result.note : n))
+      setModal(null)
+    } catch (err) {
+      console.error('Failed to update note:', err)
+      alert('Failed to update note: ' + err.message)
+    }
   }
   
-  function handleDelete(id) { 
-    setNotes(p => p.filter(n => n.id !== id)) 
+  async function handleDelete(id) {
+    if (!confirm('Are you sure you want to delete this note?')) return
+    
+    try {
+      setDeleting(id)
+      await deleteNote(id)
+      setNotes(prev => prev.filter(n => n.id !== id))
+    } catch (err) {
+      console.error('Failed to delete note:', err)
+      alert('Failed to delete note: ' + err.message)
+    } finally {
+      setDeleting(null)
+    }
   }
-
-  const filteredNotes = notes.filter(n => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (n.title?.toLowerCase().includes(q) || n.content?.toLowerCase().includes(q))
-  })
 
   return (
     <>
@@ -240,8 +277,28 @@ export default function NotesPage() {
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/10">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">{error}</p>
+            </div>
+          </div>
+        )}
+
         {/* Notes Grid */}
-        {filteredNotes.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 py-24 dark:border-white/10">
+            <svg className="h-8 w-8 animate-spin text-[#22C55E]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Loading notes...</p>
+          </div>
+        ) : notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-24 dark:border-white/10">
             <div className="text-5xl mb-4">📓</div>
             <p className="font-semibold text-gray-700 dark:text-gray-300">
@@ -253,10 +310,14 @@ export default function NotesPage() {
           </div>
         ) : (
           <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4 pb-12">
-            {filteredNotes.map(note => (
-              <NoteCard key={note.id} note={note}
+            {notes.map(note => (
+              <NoteCard 
+                key={note.id} 
+                note={note}
+                deleting={deleting === note.id}
                 onEdit={n => setModal({ mode: 'edit', note: n })}
-                onDelete={handleDelete} />
+                onDelete={handleDelete} 
+              />
             ))}
           </div>
         )}

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getAllReviews, createReview, updateReview, deleteReview } from '../../services/reviewService'
 
 // ─── Mood options ─────────────────────────────────────────────────────────────
 const MOODS = [
@@ -33,10 +34,61 @@ function ReviewField({ id, label, icon, placeholder, value, onChange, rows = 3, 
 }
 
 // ─── Past review card ─────────────────────────────────────────────────────────
-function ReviewCard({ review }) {
+function ReviewCard({ review, onDelete, onEdit }) {
   const mood = MOODS.find(m => m.value === review.mood)
+  const [showActions, setShowActions] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm('Are you sure you want to delete this review?')) return
+    
+    try {
+      setIsDeleting(true)
+      await onDelete(review.id)
+    } catch (error) {
+      console.error('Failed to delete review:', error)
+      alert('Failed to delete review')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 transition-all hover:shadow-md dark:border-white/10 dark:bg-white/[0.03]">
+    <div 
+      className="rounded-2xl border border-gray-200 bg-white p-5 transition-all hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] relative group"
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {/* Action buttons */}
+      <div className={`absolute top-3 right-3 flex gap-1 transition-opacity ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+        <button
+          onClick={() => onEdit(review)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 transition-all hover:bg-blue-500/20 dark:text-blue-400"
+          title="Edit review"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-600 transition-all hover:bg-red-500/20 disabled:opacity-50 dark:text-red-400"
+          title="Delete review"
+        >
+          {isDeleting ? (
+            <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{mood?.emoji}</span>
@@ -67,42 +119,15 @@ function ReviewCard({ review }) {
   )
 }
 
-// ─── Initial mock reviews ─────────────────────────────────────────────────────
-const mockReviews = [
-  {
-    id: 1,
-    date: 'Sep 24, 2026',
-    mood: 4,
-    learned: 'Completed my morning run and stayed consistent with hydration. Learned that small habits compound over time.',
-    tomorrow: 'Wake up at 6 AM and do a 20-min meditation before checking my phone.',
-    highlight: 'Finished reading chapter 5 of Atomic Habits',
-    challenge: 'Had trouble avoiding junk food at lunch',
-  },
-  {
-    id: 2,
-    date: 'Sep 23, 2026',
-    mood: 3,
-    learned: 'Yoga session was tough but I pushed through. Realized I need to sleep earlier to have more energy.',
-    tomorrow: 'Sleep by 10 PM and prepare healthy lunch the night before.',
-    highlight: '',
-    challenge: 'Low energy all afternoon',
-  },
-  {
-    id: 3,
-    date: 'Sep 22, 2026',
-    mood: 5,
-    learned: 'Best day this week! Hit all my targets — workout, nutrition, reading, and meditation.',
-    tomorrow: 'Replicate today\'s schedule and add 5 mins of journaling.',
-    highlight: 'Personal best on morning run — 5km in 27 min!',
-    challenge: 'None today 🎉',
-  },
-]
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function HistoryPage() {
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  const [reviews, setReviews] = useState(mockReviews)
+  const [reviews, setReviews] = useState([])
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [editingReview, setEditingReview] = useState(null)
 
   const [mood, setMood] = useState(null)
   const [learned, setLearned] = useState('')
@@ -110,28 +135,133 @@ export default function HistoryPage() {
   const [highlight, setHighlight] = useState('')
   const [challenge, setChallenge] = useState('')
 
-  function handleSubmit(e) {
+  // Fetch reviews on component mount
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await getAllReviews()
+        
+        // Format dates for display
+        const formattedReviews = data.reviews.map(review => ({
+          ...review,
+          date: new Date(review.date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+        }))
+        
+        setReviews(formattedReviews)
+      } catch (err) {
+        console.error('Failed to fetch reviews:', err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchReviews()
+  }, [])
+
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!mood || !learned.trim() || !tomorrow.trim()) return
 
-    const newReview = {
-      id: Date.now(),
-      date: today,
-      mood,
-      learned,
-      tomorrow,
-      highlight,
-      challenge,
+    try {
+      setSubmitting(true)
+      setError(null)
+
+      const reviewData = {
+        mood,
+        learned: learned.trim(),
+        tomorrow: tomorrow.trim(),
+        highlight: highlight.trim() || undefined,
+        challenge: challenge.trim() || undefined,
+      }
+
+      if (editingReview) {
+        // Update existing review
+        const result = await updateReview(editingReview.id, reviewData)
+        
+        const updatedReview = {
+          ...result.review,
+          date: new Date(result.review.date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+        }
+        
+        setReviews(prev => prev.map(r => r.id === editingReview.id ? updatedReview : r))
+        setEditingReview(null)
+      } else {
+        // Create new review
+        const result = await createReview(reviewData)
+        
+        const newReview = {
+          ...result.review,
+          date: new Date(result.review.date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+        }
+        
+        setReviews(prev => [newReview, ...prev])
+      }
+      
+      setSubmitted(true)
+      
+      // Reset form
+      setMood(null)
+      setLearned('')
+      setTomorrow('')
+      setHighlight('')
+      setChallenge('')
+
+      setTimeout(() => setSubmitted(false), 3000)
+    } catch (err) {
+      console.error('Failed to save review:', err)
+      setError(err.message)
+      setSubmitting(false)
+    } finally {
+      if (!error) {
+        setSubmitting(false)
+      }
     }
-    setReviews(prev => [newReview, ...prev])
-    setSubmitted(true)
+  }
+
+  function handleEdit(review) {
+    setEditingReview(review)
+    setMood(review.mood)
+    setLearned(review.learned || '')
+    setTomorrow(review.tomorrow || '')
+    setHighlight(review.highlight || '')
+    setChallenge(review.challenge || '')
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function handleCancelEdit() {
+    setEditingReview(null)
     setMood(null)
     setLearned('')
     setTomorrow('')
     setHighlight('')
     setChallenge('')
+  }
 
-    setTimeout(() => setSubmitted(false), 3000)
+  async function handleDelete(id) {
+    try {
+      await deleteReview(id)
+      setReviews(prev => prev.filter(r => r.id !== id))
+    } catch (err) {
+      console.error('Failed to delete review:', err)
+      throw err
+    }
   }
 
   const isValid = mood !== null && learned.trim() && tomorrow.trim()
@@ -145,19 +275,46 @@ export default function HistoryPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400">Reflect on your day and plan tomorrow — {today}</p>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/10">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* ── Today's Review Form ── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         {/* Form header */}
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#22C55E] to-[#16A34A] shadow-md shadow-[#22C55E]/30">
-            <svg className="h-5 w-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#22C55E] to-[#16A34A] shadow-md shadow-[#22C55E]/30">
+              <svg className="h-5 w-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                {editingReview ? 'Edit Review' : 'Tonight\'s Entry'}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {editingReview ? `Editing ${editingReview.date}` : `How was your day, ${today}?`}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-gray-900 dark:text-white">Tonight's Entry</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">How was your day, {today}?</p>
-          </div>
+          {editingReview && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Cancel edit
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -269,13 +426,25 @@ export default function HistoryPage() {
             {!submitted && <div />}
             <button
               type="submit"
-              disabled={!isValid}
+              disabled={!isValid || submitting}
               className="flex items-center gap-2 rounded-xl bg-[#22C55E] px-6 py-2.5 text-sm font-semibold text-black shadow-lg shadow-[#22C55E]/30 transition-all hover:-translate-y-0.5 hover:bg-[#16A34A] hover:shadow-[#22C55E]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:translate-y-0"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Save Review
+              {submitting ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {editingReview ? 'Update Review' : 'Save Review'}
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -287,7 +456,16 @@ export default function HistoryPage() {
           <h2 className="text-base font-bold text-gray-900 dark:text-white">Past Reviews</h2>
           <span className="rounded-full bg-[#22C55E]/10 px-2.5 py-0.5 text-xs font-semibold text-[#22C55E]">{reviews.length}</span>
         </div>
-        {reviews.length === 0 ? (
+        
+        {loading ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 py-16 dark:border-white/10">
+            <svg className="h-8 w-8 animate-spin text-[#22C55E]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Loading reviews...</p>
+          </div>
+        ) : reviews.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-16 dark:border-white/10">
             <span className="text-4xl">📖</span>
             <p className="mt-3 font-semibold text-gray-700 dark:text-gray-300">No reviews yet</p>
@@ -295,7 +473,7 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+            {reviews.map(r => <ReviewCard key={r.id} review={r} onDelete={handleDelete} onEdit={handleEdit} />)}
           </div>
         )}
       </div>
