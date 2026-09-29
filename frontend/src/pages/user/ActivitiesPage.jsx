@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Reorder } from 'framer-motion'
+import * as activityService from '../../services/activityService'
+import * as categoryService from '../../services/categoryService'
 
 // ─── Categories config ────────────────────────────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -11,25 +13,15 @@ const DEFAULT_CATEGORIES = [
   { label: 'Growth',    color: '#EC4899' },
 ]
 
-function getCategories() {
-  try {
-    const val = localStorage.getItem('uplife-categories')
-    return val ? JSON.parse(val) : DEFAULT_CATEGORIES
-  } catch {
-    return DEFAULT_CATEGORIES
-  }
+const getCat = (categoryName, categories) => {
+  const cat = categories.find(c => c.name === categoryName)
+  return cat ? { label: cat.name, color: cat.color } : { label: categoryName, color: '#9ca3af' }
 }
-const getCat = (label) => getCategories().find(c => c.label === label) || { label, color: '#9ca3af' }
 
-// ─── Local Storage Helpers ──────────────────────────────────────────────────
+// ─── Local Storage Helper for Date Tracking ────────────────────────────────
 const STORAGE_KEYS = {
   DATE: 'uplife-date',
-  TASKS: 'uplife-tasks',
-  MISSED: 'uplife-missed-tasks'
 }
-
-let _uid = Date.now()
-const uid = () => ++_uid
 
 function readStorage(key, defaultVal) {
   try {
@@ -45,52 +37,36 @@ function writeStorage(key, val) {
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
-function TaskModal({ mode, initial, onSave, onClose }) {
+function TaskModal({ mode, initial, onSave, onClose, categories: categoriesProp }) {
   const [title,       setTitle]       = useState(initial?.title       || '')
   const [description, setDescription] = useState(initial?.description || '')
   const [time,        setTime]        = useState(initial?.time        || '')
-  const [category,    setCategory]    = useState(initial?.category    || 'Fitness')
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [category,    setCategory]    = useState(initial?.categoryId ? String(initial.categoryId) : '')
+  const [loading, setLoading] = useState(false)
   const ref = useRef(null)
 
-  // Fetch categories from API
   useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const response = await fetch('http://localhost:3000/api/categories', {
-          credentials: 'include',
-        })
-        const data = await response.json()
-        if (data.categories && data.categories.length > 0) {
-          setCategories(data.categories)
-          // If no category is set, use the first one
-          if (!category && data.categories.length > 0) {
-            setCategory(data.categories[0].name)
-          }
-        } else {
-          // Fallback to default categories
-          setCategories(DEFAULT_CATEGORIES)
-        }
-      } catch (error) {
-        console.error('Failed to fetch categories:', error)
-        // Fallback to default categories
-        setCategories(DEFAULT_CATEGORIES)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchCategories()
     ref.current?.focus()
-  }, [])
+    // Set default category if not set and categories are available
+    if (!category && categoriesProp && categoriesProp.length > 0) {
+      setCategory(String(categoriesProp[0].id))
+    }
+  }, [categoriesProp])
 
   function submit(e) {
     e.preventDefault()
-    if (!title.trim()) return
-    const selectedCat = categories.find(c => c.name === category)
-    const cat = selectedCat || { name: category, color: '#9ca3af' }
-    onSave({ title: title.trim(), description: description.trim(), time: time.trim(), category, categoryColor: cat.color })
+    if (!title.trim() || !category) return
+    
+    const selectedCat = categoriesProp.find(c => String(c.id) === category)
+    
+    onSave({ 
+      title: title.trim(), 
+      description: description.trim(), 
+      time: time.trim(), 
+      categoryId: parseInt(category),
+      category: selectedCat?.name || '',
+      categoryColor: selectedCat?.color || '#9ca3af'
+    })
   }
 
   return createPortal(
@@ -136,21 +112,21 @@ function TaskModal({ mode, initial, onSave, onClose }) {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Category</label>
-            {loading ? (
+            {!categoriesProp || categoriesProp.length === 0 ? (
               <div className="flex items-center justify-center py-4">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#22C55E] border-t-transparent"></div>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {categories.map(c => (
-                  <button key={c.id || c.label} type="button" onClick={() => setCategory(c.name || c.label)}
+                {categoriesProp.map(c => (
+                  <button key={c.id} type="button" onClick={() => setCategory(String(c.id))}
                     className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
                     style={{
-                      borderColor: category === (c.name || c.label) ? c.color : 'transparent',
-                      background:  category === (c.name || c.label) ? `${c.color}18` : 'rgba(128,128,128,0.08)',
-                      color:       category === (c.name || c.label) ? c.color : '#9ca3af',
+                      borderColor: category === String(c.id) ? c.color : 'transparent',
+                      background:  category === String(c.id) ? `${c.color}18` : 'rgba(128,128,128,0.08)',
+                      color:       category === String(c.id) ? c.color : '#9ca3af',
                     }}>
-                    {c.name || c.label}
+                    {c.name}
                   </button>
                 ))}
               </div>
@@ -162,9 +138,9 @@ function TaskModal({ mode, initial, onSave, onClose }) {
               className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5">
               Cancel
             </button>
-            <button type="submit"
-              className="flex-1 rounded-xl bg-[#22C55E] py-2.5 text-sm font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
-              {mode === 'add' ? 'Add Activity' : 'Save Changes'}
+            <button type="submit" disabled={loading}
+              className="flex-1 rounded-xl bg-[#22C55E] py-2.5 text-sm font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A] disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? 'Saving...' : mode === 'add' ? 'Add Activity' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -175,8 +151,8 @@ function TaskModal({ mode, initial, onSave, onClose }) {
 }
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
-function TaskCard({ task, onToggle, onEdit, onDelete }) {
-  const cat = getCat(task.category)
+function TaskCard({ task, onToggle, onEdit, onDelete, categories }) {
+  const cat = getCat(task.category, categories)
   return (
     <div className={`group relative flex items-start gap-4 rounded-2xl border p-4 transition-all duration-300 ${
       task.done
@@ -201,7 +177,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
           </h3>
           <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
             style={{ backgroundColor: `${cat.color}22`, color: cat.color }}>
-            {task.category}
+            {cat.label}
           </span>
         </div>
         {task.description && (
@@ -247,9 +223,23 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
 }
 
 // ─── Missed Task Card ────────────────────────────────────────────────────────
-function MissedTaskCard({ task, onSubmitReason }) {
-  const cat = getCat(task.category)
+function MissedTaskCard({ task, onSubmitReason, categories }) {
+  const cat = getCat(task.category, categories)
   const [reason, setReason] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit() {
+    if (!reason.trim()) return
+    setLoading(true)
+    try {
+      await onSubmitReason(task.id, reason.trim())
+      setReason('')
+    } catch (error) {
+      console.error('Failed to submit reason:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="group relative flex flex-col gap-3 rounded-2xl border border-red-500/30 bg-red-500/5 p-4 transition-all duration-300 dark:bg-red-500/5">
@@ -267,7 +257,7 @@ function MissedTaskCard({ task, onSubmitReason }) {
               </h3>
               <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                 style={{ backgroundColor: `${cat.color}22`, color: cat.color }}>
-                {task.category}
+                {cat.label}
               </span>
             </div>
             {task.missedDate && (
@@ -279,7 +269,7 @@ function MissedTaskCard({ task, onSubmitReason }) {
         </div>
       </div>
 
-      {task.reason !== undefined && task.reason !== '' ? (
+      {task.reason !== undefined && task.reason !== '' && task.reason !== null ? (
         <div className="mt-2 rounded-xl bg-white/50 p-3 text-sm text-gray-700 dark:bg-black/20 dark:text-gray-300">
           <span className="font-semibold text-gray-900 dark:text-white">Reason: </span>
           {task.reason}
@@ -294,12 +284,10 @@ function MissedTaskCard({ task, onSubmitReason }) {
             className="w-full resize-none rounded-xl border border-red-500/20 bg-white/50 px-3 py-2 text-sm text-gray-900 placeholder-red-500/50 outline-none transition focus:border-red-500/50 focus:bg-white focus:ring-2 focus:ring-red-500/20 dark:bg-black/20 dark:text-white dark:focus:bg-black/40"
           />
           <button
-            onClick={() => {
-              if (reason.trim()) onSubmitReason(task.id, reason.trim());
-            }}
-            className="flex-shrink-0 rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-md shadow-red-500/20 transition hover:-translate-y-0.5 hover:bg-red-600"
-          >
-            Save
+            onClick={handleSubmit}
+            disabled={loading || !reason.trim()}
+            className="flex-shrink-0 rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-md shadow-red-500/20 transition hover:-translate-y-0.5 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? '...' : 'Save'}
           </button>
         </div>
       )}
@@ -370,65 +358,151 @@ function EndDayModal({ pendingCount, onConfirm, onClose }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ActivitiesPage() {
-  const [tasks,  setTasks]  = useState(() => readStorage(STORAGE_KEYS.TASKS, []))
-  const [missedTasks, setMissedTasks] = useState(() => readStorage(STORAGE_KEYS.MISSED, []))
+  const [tasks,  setTasks]  = useState([])
+  const [missedTasks, setMissedTasks] = useState([])
+  const [categories, setCategories] = useState([])
   const [filter, setFilter] = useState('all') // 'all' | 'pending' | 'done' | 'missed'
   const [modal,  setModal]  = useState(null)
   const [showEndDayModal, setShowEndDayModal] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Daily Reset Check
+  // Fetch categories on mount
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const data = await categoryService.getAllCategories()
+        setCategories(data.categories || [])
+      } catch (err) {
+        console.error('Failed to fetch categories:', err)
+        setError('Failed to load categories')
+      }
+    }
+    fetchCategories()
+  }, [])
+
+  // Fetch activities on mount
+  useEffect(() => {
+    fetchActivities()
+    fetchMissedActivities()
+  }, [])
+
+  async function fetchActivities() {
+    try {
+      setLoading(true)
+      const data = await activityService.getAllActivities()
+      setTasks(data.activities || [])
+      setError(null)
+    } catch (err) {
+      console.error('Failed to fetch activities:', err)
+      setError('Failed to load activities')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function fetchMissedActivities() {
+    try {
+      const data = await activityService.getMissedActivities()
+      setMissedTasks(data.missedActivities || [])
+    } catch (err) {
+      console.error('Failed to fetch missed activities:', err)
+    }
+  }
+
+  // Daily Reset Check - move to missed if it's a new day
   useEffect(() => {
     const today = new Date().toDateString()
     const lastDate = readStorage(STORAGE_KEYS.DATE, null)
 
     if (lastDate && lastDate !== today) {
-      // It's a new day!
-      const unfinished = tasks.filter(t => !t.done).map(t => ({
-        ...t,
-        reason: '',
-        missedDate: lastDate
-      }))
-
-      if (unfinished.length > 0) {
-        setMissedTasks(prev => {
-          const newMissed = [...unfinished, ...prev]
-          writeStorage(STORAGE_KEYS.MISSED, newMissed)
-          return newMissed
-        })
+      // It's a new day! Call API to move unfinished activities
+      async function moveToMissed() {
+        try {
+          await activityService.moveUnfinishedToMissed()
+          // Refresh both lists
+          await fetchActivities()
+          await fetchMissedActivities()
+        } catch (err) {
+          console.error('Failed to move activities to missed:', err)
+        }
       }
-
-      // Reset today's tasks (empty them so user has to fill them again)
-      setTasks([])
-      writeStorage(STORAGE_KEYS.TASKS, [])
+      moveToMissed()
     }
     
     writeStorage(STORAGE_KEYS.DATE, today)
-  }, []) // Runs once on mount
-
-  // Sync tasks to local storage whenever they change
-  useEffect(() => {
-    writeStorage(STORAGE_KEYS.TASKS, tasks)
-  }, [tasks])
+  }, [])
 
   const completed = tasks.filter(t => t.done).length
   const total     = tasks.length
   const pending   = total - completed
   const progress  = total === 0 ? 0 : Math.round((completed / total) * 100)
 
-  function handleAdd(data)  { setTasks(p => [{ id: uid(), done: false, ...data }, ...p]); setModal(null) }
-  function handleEdit(data) { setTasks(p => p.map(t => t.id === modal.task.id ? { ...t, ...data } : t)); setModal(null) }
-  function handleDelete(id) { setTasks(p => p.filter(t => t.id !== id)) }
-  function handleToggle(id) { setTasks(p => p.map(t => t.id === id ? { ...t, done: !t.done } : t)) }
-
-  function handleSubmitReason(id, reason) {
-    setMissedTasks(p => {
-      const updated = p.map(t => t.id === id ? { ...t, reason } : t)
-      writeStorage(STORAGE_KEYS.MISSED, updated)
-      return updated
-    })
+  async function handleAdd(data) {
+    try {
+      const result = await activityService.createActivity({
+        title: data.title,
+        description: data.description,
+        time: data.time,
+        categoryId: data.categoryId
+      })
+      setTasks(p => [result.activity, ...p])
+      setModal(null)
+    } catch (err) {
+      console.error('Failed to create activity:', err)
+      alert('Failed to create activity: ' + err.message)
+    }
   }
 
-  function handleEndDay() {
+  async function handleEdit(data) {
+    try {
+      const result = await activityService.updateActivity(modal.task.id, {
+        title: data.title,
+        description: data.description,
+        time: data.time,
+        categoryId: data.categoryId
+      })
+      setTasks(p => p.map(t => t.id === modal.task.id ? result.activity : t))
+      setModal(null)
+    } catch (err) {
+      console.error('Failed to update activity:', err)
+      alert('Failed to update activity: ' + err.message)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Are you sure you want to delete this activity?')) return
+    
+    try {
+      await activityService.deleteActivity(id)
+      setTasks(p => p.filter(t => t.id !== id))
+    } catch (err) {
+      console.error('Failed to delete activity:', err)
+      alert('Failed to delete activity: ' + err.message)
+    }
+  }
+
+  async function handleToggle(id) {
+    try {
+      const result = await activityService.toggleActivityDone(id)
+      setTasks(p => p.map(t => t.id === id ? result.activity : t))
+    } catch (err) {
+      console.error('Failed to toggle activity:', err)
+      alert('Failed to toggle activity: ' + err.message)
+    }
+  }
+
+  async function handleSubmitReason(id, reason) {
+    try {
+      const result = await activityService.updateMissedActivityReason(id, reason)
+      setMissedTasks(p => p.map(t => t.id === id ? result.missedActivity : t))
+    } catch (err) {
+      console.error('Failed to update reason:', err)
+      alert('Failed to update reason: ' + err.message)
+    }
+  }
+
+  async function handleEndDay() {
     const pendingTasks = tasks.filter(t => !t.done)
     if (pendingTasks.length === 0) {
       alert('Makayn ta task pending! Kolchi kaml 🎉')
@@ -437,27 +511,24 @@ export default function ActivitiesPage() {
     setShowEndDayModal(true)
   }
 
-  function handleConfirmEndDay() {
-    const today = new Date().toDateString()
-    const pendingTasks = tasks.filter(t => !t.done).map(t => ({
-      ...t,
-      reason: '',
-      missedDate: today
-    }))
-
-    if (pendingTasks.length > 0) {
-      setMissedTasks(prev => {
-        const newMissed = [...pendingTasks, ...prev]
-        writeStorage(STORAGE_KEYS.MISSED, newMissed)
-        return newMissed
-      })
+  async function handleConfirmEndDay() {
+    try {
+      // Move unfinished to missed
+      await activityService.moveUnfinishedToMissed()
+      
+      // Mark day as complete
+      await activityService.markDayComplete()
+      
+      // Refresh both lists
+      await fetchActivities()
+      await fetchMissedActivities()
+      
+      setShowEndDayModal(false)
+      setFilter('missed') // Switch to missed tab to add reasons
+    } catch (err) {
+      console.error('Failed to end day:', err)
+      alert('Failed to end day: ' + err.message)
     }
-
-    // Clear today's tasks or mark as reviewed
-    setTasks([])
-    writeStorage(STORAGE_KEYS.TASKS, [])
-    setShowEndDayModal(false)
-    setFilter('missed') // Switch to missed tab to add reasons
   }
 
   const filtered = tasks.filter(t => {
@@ -465,6 +536,17 @@ export default function ActivitiesPage() {
     if (filter === 'done')    return  t.done
     return true
   })
+
+  if (loading && tasks.length === 0) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 mx-auto animate-spin rounded-full border-4 border-[#22C55E] border-t-transparent"></div>
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">Loading activities...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -476,6 +558,12 @@ export default function ActivitiesPage() {
       `}</style>
 
       <div className="space-y-6">
+        {error && (
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -577,7 +665,7 @@ export default function ActivitiesPage() {
               </div>
             ) : (
               missedTasks.map(task => (
-                <MissedTaskCard key={task.id} task={task} onSubmitReason={handleSubmitReason} />
+                <MissedTaskCard key={task.id} task={task} onSubmitReason={handleSubmitReason} categories={categories} />
               ))
             )
           ) : filtered.length === 0 ? (
@@ -600,7 +688,8 @@ export default function ActivitiesPage() {
                   <TaskCard task={task}
                     onToggle={handleToggle}
                     onEdit={t => setModal({ mode: 'edit', task: t })}
-                    onDelete={handleDelete} />
+                    onDelete={handleDelete}
+                    categories={categories} />
                 </Reorder.Item>
               ))}
             </Reorder.Group>
@@ -614,6 +703,7 @@ export default function ActivitiesPage() {
           initial={modal.task}
           onSave={modal.mode === 'add' ? handleAdd : handleEdit}
           onClose={() => setModal(null)}
+          categories={categories}
         />
       )}
 

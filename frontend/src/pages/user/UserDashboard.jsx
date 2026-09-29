@@ -96,16 +96,25 @@ export default function UserDashboard() {
         setLoading(true)
         setError(null)
         
+        console.log('Fetching dashboard stats...')
+        
         const [dashboardData, trendData] = await Promise.all([
           getDashboardStats(),
           getDailyCompletionTrend(),
         ])
         
+        console.log('Dashboard data received:', dashboardData)
+        console.log('Trend data received:', trendData)
+        
         setStats(dashboardData.stats)
         setDailyTrend(trendData.data)
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err)
-        setError(err.message)
+        console.error('Error details:', {
+          message: err.message,
+          stack: err.stack,
+        })
+        setError(err.message || 'Failed to load dashboard data')
       } finally {
         setLoading(false)
       }
@@ -125,10 +134,49 @@ export default function UserDashboard() {
     )
   }
 
+  const retryFetch = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const [dashboardData, trendData] = await Promise.all([
+        getDashboardStats(),
+        getDailyCompletionTrend(),
+      ])
+      
+      setStats(dashboardData.stats)
+      setDailyTrend(trendData.data)
+    } catch (err) {
+      console.error('Retry failed:', err)
+      setError(err.message || 'Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/10">
-        <p className="text-sm text-red-800 dark:text-red-200">Failed to load dashboard: {error}</p>
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/30 dark:bg-red-900/10">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+            <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">Failed to load dashboard</h3>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-300">{error}</p>
+            <p className="mt-2 text-xs text-red-700 dark:text-red-400">
+              Make sure the backend server is running on <code className="rounded bg-red-100 px-1 py-0.5 dark:bg-red-900/40">http://localhost:3000</code>
+            </p>
+            <button
+              onClick={retryFetch}
+              className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
       </div>
     )
   }

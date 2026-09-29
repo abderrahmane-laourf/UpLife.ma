@@ -1,83 +1,62 @@
-import { apiRequest } from './authService.js'
+import { apiFetch } from './api';
+
+/**
+ * Category API Service
+ * Handles all category-related API calls
+ */
 
 /**
  * Get all categories
- * @returns {Promise<{categories: Array, total: number}>}
+ * @returns {Promise<Object>} { message, categories, total }
  */
 export async function getAllCategories() {
-  try {
-    const data = await apiRequest('/api/categories', {
-      method: 'GET',
-    })
-    return data
-  } catch (error) {
-    throw new Error(error.message || 'Failed to fetch categories')
-  }
+  return apiFetch('/api/categories');
 }
 
 /**
- * Get single category by ID
+ * Get category by ID
  * @param {number} id - Category ID
- * @returns {Promise<{category: Object}>}
+ * @returns {Promise<Object>} { message, category }
  */
 export async function getCategoryById(id) {
-  try {
-    const data = await apiRequest(`/api/categories/${id}`, {
-      method: 'GET',
-    })
-    return data
-  } catch (error) {
-    throw new Error(error.message || 'Failed to fetch category')
-  }
+  return apiFetch(`/api/categories/${id}`);
 }
 
 /**
- * Create new category
- * @param {Object} categoryData - {name, description, color}
- * @returns {Promise<{category: Object}>}
+ * Create a new category
+ * @param {Object} data - Category data
+ * @param {string} data.name - Category name (required)
+ * @param {string} data.description - Category description (optional)
+ * @param {string} data.color - Category color in hex format (optional, default: #22C55E)
+ * @returns {Promise<Object>} { message, category }
  */
-export async function createCategory(categoryData) {
-  try {
-    const data = await apiRequest('/api/categories', {
-      method: 'POST',
-      body: JSON.stringify(categoryData),
-    })
-    return data
-  } catch (error) {
-    throw new Error(error.message || 'Failed to create category')
-  }
+export async function createCategory(data) {
+  return apiFetch('/api/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 /**
- * Update existing category
+ * Update a category
  * @param {number} id - Category ID
- * @param {Object} categoryData - {name?, description?, color?}
- * @returns {Promise<{category: Object}>}
+ * @param {Object} data - Updated category data
+ * @returns {Promise<Object>} { message, category }
  */
-export async function updateCategory(id, categoryData) {
-  try {
-    const data = await apiRequest(`/api/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(categoryData),
-    })
-    return data
-  } catch (error) {
-    throw new Error(error.message || 'Failed to update category')
-  }
+export async function updateCategory(id, data) {
+  return apiFetch(`/api/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
 
 /**
- * Delete category
+ * Delete a category
  * @param {number} id - Category ID
- * @returns {Promise<{message: string}>}
+ * @returns {Promise<Object>} { message, deletedCategory }
  */
 export async function deleteCategory(id) {
-  try {
-    const data = await apiRequest(`/api/categories/${id}`, {
-      method: 'DELETE',
-    })
-    return data
-  } catch (error) {
-    throw new Error(error.message || 'Failed to delete category')
-  }
+  return apiFetch(`/api/categories/${id}`, {
+    method: 'DELETE',
+  });
 }
