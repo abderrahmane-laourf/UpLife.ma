@@ -1,19 +1,26 @@
 import prisma from '../../lib/prisma.js';
 
 /**
- * Get all activities for the authenticated user for today
- * GET /api/activities
+ * Get all activities for the authenticated user for today (or specified date)
+ * GET /api/activities?date=2026-09-28
  */
 export async function getAllActivities(req, res) {
   try {
     const userId = req.user.id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Get date from query parameter or use today
+    let targetDate;
+    if (req.query.date) {
+      targetDate = new Date(req.query.date);
+    } else {
+      targetDate = new Date();
+    }
+    targetDate.setHours(0, 0, 0, 0);
 
     const activities = await prisma.activity.findMany({
       where: {
         userId,
-        date: today,
+        date: targetDate,
       },
       include: {
         category: {
@@ -31,6 +38,7 @@ export async function getAllActivities(req, res) {
 
     return res.json({
       message: 'Activities retrieved successfully',
+      date: targetDate,
       activities: activities.map(activity => ({
         id: activity.id,
         title: activity.title,
@@ -491,21 +499,205 @@ export async function updateMissedActivityReason(req, res) {
 }
 
 /**
+ * Update missed activity (edit title, description, time)
+ * PUT /api/activities/missed/:id
+ */
+export async function updateMissedActivity(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { title, description, time, reason } = req.body;
+
+    // Check if missed activity exists and belongs to user
+    const existingActivity = await prisma.missedActivity.findFirst({
+      where: {
+        id: parseInt(id),
+        userId,
+      },
+    });
+
+    if (!existingActivity) {
+      return res.status(404).json({ message: 'Missed activity not found' });
+    }
+
+    const missedActivity = await prisma.missedActivity.update({
+      where: { id: parseInt(id) },
+      data: {
+        ...(title && { title: title.trim() }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(time !== undefined && { time: time?.trim() || null }),
+        ...(reason !== undefined && { reason: reason?.trim() || null }),
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      message: 'Missed activity updated successfully',
+      missedActivity: {
+        id: missedActivity.id,
+        title: missedActivity.title,
+        description: missedActivity.description,
+        time: missedActivity.time,
+        reason: missedActivity.reason,
+        category: missedActivity.category.name,
+        categoryColor: missedActivity.category.color,
+        categoryId: missedActivity.category.id,
+        missedDate: missedActivity.missedDate,
+        createdAt: missedActivity.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Update missed activity error:', error);
+    return res.status(500).json({
+      message: 'Failed to update missed activity',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Delete missed activity
+ * DELETE /api/activities/missed/:id
+ */
+export async function deleteMissedActivity(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // Check if missed activity exists and belongs to user
+    const missedActivity = await prisma.missedActivity.findFirst({
+      where: {
+        id: parseInt(id),
+        userId,
+      },
+    });
+
+    if (!missedActivity) {
+      return res.status(404).json({ message: 'Missed activity not found' });
+    }
+
+    await prisma.missedActivity.delete({
+      where: { id: parseInt(id) },
+    });
+
+    return res.json({
+      message: 'Missed activity deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete missed activity error:', error);
+    return res.status(500).json({
+      message: 'Failed to delete missed activity',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Restore missed activity to completed (create as done activity)
+ * POST /api/activities/missed/:id/restore
+ */
+export async function restoreMissedActivity(req, res) {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // Check if missed activity exists and belongs to user
+    const missedActivity = await prisma.missedActivity.findFirst({
+      where: {
+        id: parseInt(id),
+        userId,
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    if (!missedActivity) {
+      return res.status(404).json({ message: 'Missed activity not found' });
+    }
+
+    // Create a new activity as completed on the original missed date
+    const activity = await prisma.activity.create({
+      data: {
+        userId,
+        categoryId: missedActivity.categoryId,
+        title: missedActivity.title,
+        description: missedActivity.description,
+        time: missedActivity.time,
+        date: missedActivity.missedDate,
+        done: true, // Mark as completed
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
+      },
+    });
+
+    // Delete the missed activity
+    await prisma.missedActivity.delete({
+      where: { id: parseInt(id) },
+    });
+
+    return res.json({
+      message: 'Missed activity restored as completed',
+      activity: {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        time: activity.time,
+        done: activity.done,
+        prayerStatus: activity.prayerStatus,
+        dayCompleted: activity.dayCompleted,
+        category: activity.category.name,
+        categoryColor: activity.category.color,
+        categoryId: activity.category.id,
+        date: activity.date,
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Restore missed activity error:', error);
+    return res.status(500).json({
+      message: 'Failed to restore missed activity',
+      error: error.message,
+    });
+  }
+}
+
+/**
  * Move unfinished activities to missed (Called by a cron job or manually)
  * POST /api/activities/move-to-missed
+ * 
+ * When called manually (Slit Nhar button): moves TODAY's unfinished tasks to missed
+ * When called by cron: can specify a date to move
  */
 export async function moveUnfinishedToMissed(req, res) {
   try {
     const userId = req.user.id;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
+    
+    // Use TODAY for manual "Slit Nhar" button, or accept a date from request
+    const targetDate = req.body.date ? new Date(req.body.date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
 
-    // Find unfinished activities from yesterday
+    // Find unfinished activities from the target date
     const unfinishedActivities = await prisma.activity.findMany({
       where: {
         userId,
-        date: yesterday,
+        date: targetDate,
         done: false,
       },
       include: {
@@ -533,17 +725,17 @@ export async function moveUnfinishedToMissed(req, res) {
       })),
     });
 
-    // Optional: Delete old activities (or keep them for history)
-    // await prisma.activity.deleteMany({
-    //   where: {
-    //     userId,
-    //     date: yesterday,
-    //     done: false,
-    //   },
-    // });
+    // Delete the activities that were moved to missed
+    await prisma.activity.deleteMany({
+      where: {
+        userId,
+        date: targetDate,
+        done: false,
+      },
+    });
 
     return res.json({
-      message: 'Unfinished activities moved to missed',
+      message: 'Unfinished activities moved to missed and cleared from today',
       moved: missedActivities.count,
     });
   } catch (error) {

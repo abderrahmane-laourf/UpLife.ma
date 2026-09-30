@@ -20,6 +20,7 @@ model User {
   dailyReviews     DailyReview[]
   missedActivities MissedActivity[]
   notes            Note[]
+  goals            Goal[]
 }
 
 model OtpRequest {
@@ -43,6 +44,7 @@ model Category {
   updatedAt        DateTime         @updatedAt
   activities       Activity[]
   missedActivities MissedActivity[]
+  goals            Goal[]
 }
 
 model Activity {
@@ -107,6 +109,41 @@ model DailyReview {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
+}
+
+model Goal {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  categoryId  Int
+  title       String
+  description String?
+  deadline    DateTime?    @db.Date
+  isActive    Boolean      @default(true)
+  isCompleted Boolean      @default(false)
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partialGoals PartialGoal[]
+
+  @@index([userId, isActive])
+  @@index([categoryId])
+}
+
+model PartialGoal {
+  id          Int       @id @default(autoincrement())
+  goalId      Int
+  title       String
+  description String?
+  order       Int       @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  goal        Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, order])
 }
 
 enum UserRole {

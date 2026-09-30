@@ -8,6 +8,9 @@ import {
   toggleActivityDone,
   getMissedActivities,
   updateMissedActivityReason,
+  updateMissedActivity,
+  deleteMissedActivity,
+  restoreMissedActivity,
   moveUnfinishedToMissed,
   markDayComplete,
   updatePrayerStatus,
@@ -34,7 +37,7 @@ router.get('/stats/daily-trend', getDailyCompletionTrend);
 /**
  * Activity CRUD routes
  */
-// Get all activities for today
+// Get all activities for today (or specified date with ?date=YYYY-MM-DD)
 router.get('/', getAllActivities);
 
 // Get activity by ID
@@ -66,6 +69,15 @@ router.get('/missed/all', getMissedActivities);
 
 // Add reason to missed activity
 router.patch('/missed/:id/reason', updateMissedActivityReason);
+
+// Update missed activity (edit title, description, time, reason)
+router.put('/missed/:id', updateMissedActivity);
+
+// Delete missed activity
+router.delete('/missed/:id', deleteMissedActivity);
+
+// Restore missed activity to completed
+router.post('/missed/:id/restore', restoreMissedActivity);
 
 // Move unfinished activities to missed (can be called by cron)
 router.post('/missed/move', moveUnfinishedToMissed);

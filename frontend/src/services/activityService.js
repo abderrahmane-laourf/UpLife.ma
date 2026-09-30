@@ -6,11 +6,13 @@ import { apiFetch } from './api';
  */
 
 /**
- * Get all activities for today
- * @returns {Promise<Object>} { message, activities }
+ * Get all activities for today or a specific date
+ * @param {string} date - Optional ISO date string (defaults to today)
+ * @returns {Promise<Object>} { message, date, activities }
  */
-export async function getAllActivities() {
-  return apiFetch('/api/activities');
+export async function getAllActivities(date = null) {
+  const endpoint = date ? `/api/activities?date=${date}` : '/api/activities';
+  return apiFetch(endpoint);
 }
 
 /**
@@ -118,12 +120,50 @@ export async function updateMissedActivityReason(id, reason) {
 }
 
 /**
+ * Update missed activity (edit title, description, time, reason)
+ * @param {number} id - Missed activity ID
+ * @param {Object} data - Updated data
+ * @returns {Promise<Object>} { message, missedActivity }
+ */
+export async function updateMissedActivity(id, data) {
+  return apiFetch(`/api/activities/missed/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Delete missed activity
+ * @param {number} id - Missed activity ID
+ * @returns {Promise<Object>} { message }
+ */
+export async function deleteMissedActivity(id) {
+  return apiFetch(`/api/activities/missed/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Restore missed activity to completed
+ * @param {number} id - Missed activity ID
+ * @returns {Promise<Object>} { message, activity }
+ */
+export async function restoreMissedActivity(id) {
+  return apiFetch(`/api/activities/missed/${id}/restore`, {
+    method: 'POST',
+  });
+}
+
+/**
  * Move unfinished activities to missed
+ * @param {string} date - Optional ISO date string (defaults to today)
  * @returns {Promise<Object>} { message, moved }
  */
-export async function moveUnfinishedToMissed() {
+export async function moveUnfinishedToMissed(date = null) {
+  const body = date ? { date } : {};
   return apiFetch('/api/activities/missed/move', {
     method: 'POST',
+    ...(date && { body: JSON.stringify(body) }),
   });
 }
 

@@ -1,47 +1,56 @@
 # ========================================
-# Backend - .gitignore
+# UpLife.ma - Root .gitignore
 # ========================================
 
 # ────────────────────────────────────────
-# Environment Variables (CRITICAL!)
+# Environment Variables & Secrets
 # ────────────────────────────────────────
 .env
-.env.*
 .env.local
+.env.*.local
 .env.production
 .env.development
 *.env
+**/.env
+**/.env.*
 
 # ────────────────────────────────────────
 # Node.js
 # ────────────────────────────────────────
 node_modules/
+**/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pnpm-store/
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
 # ────────────────────────────────────────
-# Build & Dist
+# Build Output
 # ────────────────────────────────────────
 dist/
+dist-ssr/
 build/
-*.tsbuildinfo
+out/
+.next/
+.nuxt/
+.cache/
+*.local
 
 # ────────────────────────────────────────
-# Database Files (CRITICAL!)
+# Database
 # ────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 *.db-journal
 prisma/*.db
-prisma/dev.db*
-*.db-wal
-*.db-shm
+backend/prisma/*.db
+backend/prisma/dev.db*
 
 # ────────────────────────────────────────
 # Logs
@@ -49,36 +58,46 @@ prisma/dev.db*
 logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 combined.log
 error.log
 access.log
 
 # ────────────────────────────────────────
-# Uploads & User Data
+# OS Files
 # ────────────────────────────────────────
-uploads/
-public/uploads/
-static/uploads/
-user-data/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.directory
 
 # ────────────────────────────────────────
-# Security & Credentials (CRITICAL!)
+# IDE / Editor
 # ────────────────────────────────────────
-*.pem
-*.key
-*.cert
-*.crt
-*.p12
-*.pfx
-credentials/
-secrets/
-config/secrets.json
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.iml
 
 # ────────────────────────────────────────
-# Redis Dumps
+# Testing
 # ────────────────────────────────────────
-dump.rdb
-*.rdb
+coverage/
+.nyc_output/
+*.lcov
+.jest/
 
 # ────────────────────────────────────────
 # Temporary Files
@@ -88,44 +107,107 @@ temp/
 *.tmp
 *.bak
 *.backup
+.temp/
 
 # ────────────────────────────────────────
-# IDE / Editor
+# Security & Sensitive Data
 # ────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.jks
+config/secrets.json
+secrets/
+credentials/
+*.credentials
 
 # ────────────────────────────────────────
-# OS Files
+# Docker
 # ────────────────────────────────────────
-.DS_Store
-Thumbs.db
-Desktop.ini
+docker-compose.override.yml
+.dockerignore
 
 # ────────────────────────────────────────
-# Testing & Coverage
+# Cloud & Deployment
 # ────────────────────────────────────────
-coverage/
-.nyc_output/
-*.lcov
+.vercel
+.netlify
+.terraform/
+*.tfstate
+*.tfstate.*
 
 # ────────────────────────────────────────
-# Database Backups
+# Specific to this project
 # ────────────────────────────────────────
-*.sql
+# Backend
+backend/.env
+backend/.env.*
+backend/node_modules/
+backend/dist/
+backend/uploads/
+backend/logs/
+
+# Frontend
+frontend/.env
+frontend/.env.*
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Evolution API
+evolution-api/.env
+evolution-api/.env.*
+evolution-api/node_modules/
+evolution-api/instances/
+evolution-api/store/
+
+# Redis data
+redis-data/
+
+# Database backups
+*.sql.gz
 *.dump
-*.backup.sql
 backups/
 
+# User uploaded files
+uploads/
+public/uploads/
+static/uploads/
+
 # ────────────────────────────────────────
-# NEVER COMMIT SENSITIVE DATA!
+# WhatsApp/Evolution API Sensitive Data
 # ────────────────────────────────────────
-# Your .env should contain:
-# - DATABASE_URL
-# - JWT_SECRET
-# - REDIS_URL
-# - WHATSAPP_API_KEY
-# - Any API keys/tokens
+evolution-api/instances/
+evolution-api/store/
+*.data.json
+*-auth-info-baileys/
+*.session
+*.qr
+
+# ────────────────────────────────────────
+# NEVER COMMIT THESE!
+# ────────────────────────────────────────
+# JWT Secrets
+JWT_SECRET=*
+SECRET_KEY=*
+PRIVATE_KEY=*
+
+# Database URLs
+DATABASE_URL=*
+DB_URL=*
+MONGODB_URI=*
+
+# API Keys
+API_KEY=*
+*_API_KEY=*
+WHATSAPP_*=*
+OPENAI_*=*
+STRIPE_*=*
+
+# Tokens
+*_TOKEN=*
+ACCESS_TOKEN=*
+REFRESH_TOKEN=*

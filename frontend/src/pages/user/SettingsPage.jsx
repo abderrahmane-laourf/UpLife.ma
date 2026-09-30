@@ -2,13 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth.jsx'
 import { useCategories } from '../../hooks/useCategories.jsx'
 import SwipeToast from '../../components/common/SwipeToast.jsx'
-
-function readGoal() {
-  try { return JSON.parse(localStorage.getItem('uplife-goal') || 'null') } catch { return null }
-}
-function writeGoal(g) {
-  localStorage.setItem('uplife-goal', JSON.stringify(g))
-}
+import GoalSettings from '../../components/GoalSettings.jsx'
 
 // ─── Reusable input field ─────────────────────────────────────────────────────
 function Field({ label, id, icon, children, hint }) {
@@ -72,10 +66,6 @@ export default function SettingsPage() {
     name: user?.name || '', phone: user?.phone || '', email: user?.email || '', bio: '', city: '',
   })
 
-  // Goal State
-  const [goal, setGoal] = useState(() => readGoal() || { title: '', category: 'Fitness', deadline: '', description: '' })
-  const [goalSaved, setGoalSaved] = useState(false)
-
   // Categories State
   const [newCatLabel, setNewCatLabel] = useState('')
   const [newCatDescription, setNewCatDescription] = useState('')
@@ -101,14 +91,6 @@ export default function SettingsPage() {
     setSaved(true)
     showToast('Profile updated successfully!', 'success')
     setTimeout(() => setSaved(false), 3000)
-  }
-
-  function handleGoalSubmit(e) {
-    e.preventDefault()
-    writeGoal(goal)
-    setGoalSaved(true)
-    showToast('Goal saved successfully!', 'success')
-    setTimeout(() => setGoalSaved(false), 3000)
   }
 
   async function handleAddCategory(e) {
@@ -185,7 +167,13 @@ export default function SettingsPage() {
           className={`px-4 py-2.5 text-sm font-semibold transition-all duration-200 border-b-2 ${
             activeTab === 'profile' ? 'border-[#22C55E] text-[#22C55E]' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
           }`}>
-          Profile & Goal
+          Profile
+        </button>
+        <button onClick={() => setActiveTab('goal')}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all duration-200 border-b-2 ${
+            activeTab === 'goal' ? 'border-[#22C55E] text-[#22C55E]' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}>
+          My Goal
         </button>
         <button onClick={() => setActiveTab('categories')}
           className={`px-4 py-2.5 text-sm font-semibold transition-all duration-200 border-b-2 ${
@@ -195,7 +183,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* ── Profile & Goal Tab ── */}
+      {/* ── Profile Tab ── */}
       {activeTab === 'profile' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Hero Card */}
@@ -260,38 +248,13 @@ export default function SettingsPage() {
               </div>
             </form>
           </Section>
+        </div>
+      )}
 
-          <Section title="My Global Goal" subtitle="Set your main wellness objective" icon={<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>}>
-            <form onSubmit={handleGoalSubmit} className="space-y-4">
-              <Field id="goal-title" label="Goal" icon={<svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>}>
-                <Input id="goal-title" value={goal.title} onChange={e => setGoal(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Lose 5 kg before summer" />
-              </Field>
-              <Field id="goal-desc" label="Description" icon={<svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7"/></svg>}>
-                <textarea rows={2} value={goal.description} onChange={e => setGoal(p => ({ ...p, description: e.target.value }))} className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#22C55E] focus:ring-2 focus:ring-[#22C55E]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder-gray-500" />
-              </Field>
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Category</p>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(c => (
-                    <button key={c.id} type="button" onClick={() => setGoal(p => ({ ...p, category: c.name }))}
-                      className="rounded-xl border px-3 py-1.5 text-xs font-semibold transition"
-                      style={{ borderColor: goal.category === c.name ? c.color : 'transparent', background: goal.category === c.name ? `${c.color}18` : 'rgba(128,128,128,0.08)', color: goal.category === c.name ? c.color : '#9ca3af' }}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Field id="goal-deadline" label="Target deadline" icon={<svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}>
-                <Input id="goal-deadline" type="date" value={goal.deadline} onChange={e => setGoal(p => ({ ...p, deadline: e.target.value }))} />
-              </Field>
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/5">
-                {goalSaved ? <span className="flex items-center gap-1.5 text-sm font-medium text-[#22C55E]"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Goal saved!</span> : <div />}
-                <button type="submit" className="flex items-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]">
-                  Save Goal
-                </button>
-              </div>
-            </form>
-          </Section>
+      {/* ── Goal Tab ── */}
+      {activeTab === 'goal' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <GoalSettings />
         </div>
       )}
 

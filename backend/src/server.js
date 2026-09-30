@@ -8,6 +8,7 @@ import categorieRoutes from './modules/categories/categorie.routes.js';
 import activityRoutes from './modules/activities/activity.routes.js';
 import noteRoutes from './modules/notes/note.routes.js';
 import reviewRoutes from './modules/reviews/review.routes.js';
+import goalRoutes from './modules/goals/goal.routes.js';
 import './queues/whatsapp.queue.js';
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/categories', categorieRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/goals', goalRoutes);
 
 app.get('/', (req, res) => {
   res.json({
