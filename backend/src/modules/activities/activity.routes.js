@@ -52,14 +52,14 @@ router.put('/:id', updateActivity);
 // Delete activity
 router.delete('/:id', deleteActivity);
 
+// Mark day as complete for all today's activities (MUST be before /:id/toggle)
+router.patch('/day-complete', markDayComplete);
+
 // Toggle activity done status
 router.patch('/:id/toggle', toggleActivityDone);
 
 // Update prayer status
 router.patch('/:id/prayer-status', updatePrayerStatus);
-
-// Mark day as complete for all today's activities
-router.patch('/day-complete', markDayComplete);
 
 /**
  * Missed activities routes
