@@ -257,7 +257,7 @@ export default function GoalSettings() {
     <>
       {/* Partial Goal Modal */}
       {showPartialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0a0a0a]">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">

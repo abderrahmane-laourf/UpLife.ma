@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth.jsx'
 import { useCategories } from '../../hooks/useCategories.jsx'
 import SwipeToast from '../../components/common/SwipeToast.jsx'
 import GoalSettings from '../../components/GoalSettings.jsx'
+import NoFapCounter from '../../components/NoFapCounter.jsx'
 
 // ─── Reusable input field ─────────────────────────────────────────────────────
 function Field({ label, id, icon, children, hint }) {
@@ -175,6 +176,12 @@ export default function SettingsPage() {
           }`}>
           My Goal
         </button>
+        <button onClick={() => setActiveTab('nofap')}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all duration-200 border-b-2 ${
+            activeTab === 'nofap' ? 'border-[#22C55E] text-[#22C55E]' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}>
+          NoFap 💪
+        </button>
         <button onClick={() => setActiveTab('categories')}
           className={`px-4 py-2.5 text-sm font-semibold transition-all duration-200 border-b-2 ${
             activeTab === 'categories' ? 'border-[#22C55E] text-[#22C55E]' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -255,6 +262,13 @@ export default function SettingsPage() {
       {activeTab === 'goal' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <GoalSettings />
+        </div>
+      )}
+
+      {/* ── NoFap Tab ── */}
+      {activeTab === 'nofap' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <NoFapCounter />
         </div>
       )}
 

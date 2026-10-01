@@ -9,6 +9,7 @@ import activityRoutes from './modules/activities/activity.routes.js';
 import noteRoutes from './modules/notes/note.routes.js';
 import reviewRoutes from './modules/reviews/review.routes.js';
 import goalRoutes from './modules/goals/goal.routes.js';
+import noFapRoutes from './modules/nofap/nofap.routes.js';
 import './queues/whatsapp.queue.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/nofap', noFapRoutes);
 
 app.get('/', (req, res) => {
   res.json({

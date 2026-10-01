@@ -299,7 +299,8 @@ export default function UserLayout() {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 backdrop-blur-sm lg:hidden"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getDashboardStats, getDailyCompletionTrend } from '../../services/activityService'
+import * as nofapService from '../../services/nofapService'
+import * as goalService from '../../services/goalService'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Area, AreaChart, Label, Line, LineChart,
@@ -61,18 +63,17 @@ function DonutLabel({ viewBox, total }) {
   )
 }
 
-function getCategoryColor(label) {
-  try {
-    const cats = JSON.parse(localStorage.getItem('uplife-categories') || '[]')
-    const match = cats.find(c => c.label === label)
-    if (match) return match.color
-  } catch {}
+function getCategoryColor(categoryName, categoryColor) {
+  // If color is provided from backend, use it
+  if (categoryColor) return categoryColor
   
+  // Fallback to defaults
   const DEFAULT = { Fitness: '#22C55E', Health: '#3B82F6', Wellness: '#A855F7', Nutrition: '#F59E0B', Growth: '#EC4899' }
-  return DEFAULT[label] || '#22C55E'
+  return DEFAULT[categoryName] || '#22C55E'
 }
 
 function readGoal() {
+  // Deprecated - keeping for backward compatibility
   try { return JSON.parse(localStorage.getItem('uplife-goal') || 'null') } catch { return null }
 }
 
@@ -88,6 +89,10 @@ export default function UserDashboard() {
   const [error, setError] = useState(null)
   const [stats, setStats] = useState(null)
   const [dailyTrend, setDailyTrend] = useState([])
+  const [noFapCounter, setNoFapCounter] = useState(null)
+  const [noFapLoading, setNoFapLoading] = useState(true)
+  const [goal, setGoal] = useState(null)
+  const [goalLoading, setGoalLoading] = useState(true)
 
   // Fetch dashboard stats
   useEffect(() => {
@@ -121,6 +126,45 @@ export default function UserDashboard() {
     }
 
     fetchData()
+  }, [])
+
+  // Fetch NoFap counter
+  useEffect(() => {
+    async function fetchNoFap() {
+      try {
+        setNoFapLoading(true)
+        const data = await nofapService.getCounter()
+        setNoFapCounter(data.counter)
+      } catch (err) {
+        console.error('Failed to fetch NoFap counter:', err)
+        // Don't show error, just don't display the card
+        setNoFapCounter(null)
+      } finally {
+        setNoFapLoading(false)
+      }
+    }
+
+    fetchNoFap()
+  }, [])
+
+  // Fetch Goal from backend
+  useEffect(() => {
+    async function fetchGoal() {
+      try {
+        setGoalLoading(true)
+        const data = await goalService.getActiveGoal()
+        console.log('Goal data received:', data)
+        setGoal(data.goal)
+      } catch (err) {
+        console.error('Failed to fetch goal:', err)
+        // Don't show error, just don't display the goal card
+        setGoal(null)
+      } finally {
+        setGoalLoading(false)
+      }
+    }
+
+    fetchGoal()
   }, [])
 
   if (loading) {
@@ -186,8 +230,8 @@ export default function UserDashboard() {
   const trendData = stats?.trendData || []
   const totalTasks = categoryData.reduce((s, c) => s + c.value, 0)
 
-  const goal = readGoal()
-  const goalColor = goal ? getCategoryColor(goal.category) : '#22C55E'
+  // Use goal from backend API state (not localStorage)
+  const goalColor = goal ? getCategoryColor(goal.category?.label, goal.category?.color) : '#22C55E'
   const daysLeft = goal?.deadline ? daysUntil(goal.deadline) : null
 
   return (
@@ -210,7 +254,7 @@ export default function UserDashboard() {
           <div className="pointer-events-none absolute -bottom-6 right-24 h-20 w-20 rounded-full opacity-10" style={{ background: goalColor }} />
 
           <div className="relative flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-4 flex-1 min-w-0">
               {/* Pulsing target icon */}
               <div className="relative flex-shrink-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: `${goalColor}22` }}>
@@ -221,7 +265,7 @@ export default function UserDashboard() {
                 <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full" style={{ background: goalColor, animation: 'pulse 2s infinite', boxShadow: `0 0 0 0 ${goalColor}` }} />
               </div>
 
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: goalColor }}>My Global Goal</span>
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: `${goalColor}20`, color: goalColor }}>
@@ -232,6 +276,29 @@ export default function UserDashboard() {
                 {goal.description && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{goal.description}</p>
                 )}
+                
+                {/* Action buttons - below description */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    href="/settings?tab=goal"
+                    className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:scale-105"
+                    style={{ borderColor: `${goalColor}40`, background: `${goalColor}10`, color: goalColor }}
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Goal
+                  </a>
+                  <a
+                    href="/settings?tab=goal"
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white/50 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:scale-105 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    Manage Steps
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -258,9 +325,80 @@ export default function UserDashboard() {
               <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
             </svg>
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No global goal set yet</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Go to <span className="font-semibold text-[#22C55E]">Profile → My Global Goal</span> to set your main objective.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Go to <span className="font-semibold text-[#22C55E]">Settings → My Goal</span> to set your main objective.</p>
+          </div>
+          <a
+            href="/settings?tab=goal"
+            className="flex-shrink-0 flex items-center gap-1.5 rounded-xl bg-[#22C55E] px-4 py-2 text-xs font-bold text-black shadow-lg shadow-[#22C55E]/25 transition hover:-translate-y-0.5 hover:bg-[#16A34A]"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Set Goal
+          </a>
+        </div>
+      )}
+
+      {/* ── NoFap Counter Card ── */}
+      {!noFapLoading && noFapCounter && noFapCounter.isActive && (
+        <div className="relative overflow-hidden rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 p-5 dark:border-purple-500/20 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-purple-500/5">
+          {/* Decorative blobs */}
+          <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 opacity-10" />
+          <div className="pointer-events-none absolute -bottom-6 right-24 h-20 w-20 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 opacity-10" />
+
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              {/* Icon */}
+              <div className="relative flex-shrink-0">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500">
+                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500" style={{ animation: 'pulse 2s infinite' }} />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    NoFap Challenge
+                  </span>
+                  <span className="rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:text-purple-300">
+                    {noFapCounter.currentStreak === 1 ? '1 Day' : `${noFapCounter.currentStreak} Days`}
+                  </span>
+                </div>
+                <h2 className="text-base font-extrabold text-gray-900 dark:text-white leading-snug">
+                  {noFapCounter.currentStreak === 0 ? 'Stay Strong! Start Fresh!' : 
+                   noFapCounter.currentStreak < 7 ? 'Keep Going! 💪' :
+                   noFapCounter.currentStreak < 30 ? 'Great Progress! 🔥' :
+                   noFapCounter.currentStreak < 90 ? 'Amazing Streak! 🌟' :
+                   'Legendary! 🏆'}
+                </h2>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  {noFapCounter.longestStreak > noFapCounter.currentStreak && (
+                    <>Personal best: {noFapCounter.longestStreak} days • </>
+                  )}
+                  Started {new Date(noFapCounter.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Days counter */}
+            <div className="flex-shrink-0 text-right">
+              <p className="text-3xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                {noFapCounter.currentStreak}
+              </p>
+              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+                {noFapCounter.currentStreak === 1 ? 'day clean' : 'days clean'}
+              </p>
+              {noFapCounter.currentStreak >= 7 && (
+                <p className="mt-0.5 text-[10px] text-purple-600 dark:text-purple-400">
+                  🔥 {Math.floor(noFapCounter.currentStreak / 7)} {Math.floor(noFapCounter.currentStreak / 7) === 1 ? 'week' : 'weeks'}!
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

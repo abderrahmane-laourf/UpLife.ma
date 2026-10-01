@@ -86,7 +86,7 @@ function TaskModal({ mode, initial, onSave, onClose, categories: categoriesProp 
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -357,7 +357,7 @@ function EndDayModal({ pendingCount, onConfirm, onClose }) {
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div

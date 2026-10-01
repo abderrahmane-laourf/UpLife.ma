@@ -21,6 +21,7 @@ model User {
   missedActivities MissedActivity[]
   notes            Note[]
   goals            Goal[]
+  noFapCounter     NoFapCounter?
 }
 
 model OtpRequest {
@@ -149,4 +150,20 @@ model PartialGoal {
 enum UserRole {
   USER
   ADMIN
+}
+
+model NoFapCounter {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @unique
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  startDate        DateTime  @default(now()) @db.Date
+  lastRelapseDate  DateTime? @db.Date
+  totalRelapses    Int       @default(0)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
